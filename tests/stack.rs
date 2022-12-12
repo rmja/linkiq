@@ -80,6 +80,8 @@ fn can_read_example_case(
         }
     }
     // When
+    assert_eq!(vector.frame.len(), phl::get_frame_length(&frame).unwrap());
+
     let packet = stack.read(&frame).unwrap();
 
     // Then
@@ -117,6 +119,7 @@ fn can_write_example_case(vector: &ExampleVector) {
     let stack = Stack::new();
     let mut writer = Vec::new();
     let packet = Packet {
+        uptime: None,
         phl: Some(phl::PhlFields {
             code_rate: vector.code_rate,
             header_distance: 0,

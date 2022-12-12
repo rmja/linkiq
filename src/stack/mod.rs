@@ -1,3 +1,5 @@
+use core::time::Duration;
+
 use alloc::vec::Vec;
 
 pub mod apl;
@@ -28,6 +30,7 @@ pub trait Layer {
 /// A single packet
 #[derive(Default)]
 pub struct Packet {
+    pub uptime: Option<Duration>,
     pub phl: Option<phl::PhlFields>,
     pub mbal: Option<mbal::MbalFields>,
     pub mbus_data: Vec<u8>,

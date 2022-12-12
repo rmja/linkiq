@@ -3,7 +3,6 @@ use alloc::vec::Vec;
 use bitvec::prelude::*;
 use crc::{Algorithm, Crc};
 use fastfec::{
-    interleaver::Interleaver,
     turbo::{umts::UmtsTurboDecoder, TurboEncoder},
     Llr,
 };
@@ -46,6 +45,28 @@ pub struct PhlFields {
     pub decode_distance: usize,
 }
 
+pub fn get_frame_length(buffer: &[u8]) -> Option<usize> {
+    if buffer.len() < HEADER_SIZE {
+        return None;
+    }
+
+    let mut reader = BitReader::from_slice(buffer);
+    reader.read_bits::<usize>(2)?; // Discard the two padding bits
+
+    let (header, _) = PhyCodedHeader::read(&mut reader)?;
+    let frame_length = get_frame_length_from_header(&header);
+    Some(frame_length)
+}
+
+fn get_frame_length_from_header(header: &PhyCodedHeader) -> usize {
+    let block_length = header.data_length as usize + 4;
+    let parity_bits = match header.rate {
+        CodeRate::OneThird => (3 - 1) * (block_length * 8),
+        CodeRate::OneHalf => (2 - 1) * (block_length * 8),
+    };
+    HEADER_SIZE + block_length + (parity_bits + 7) / 8
+}
+
 impl<A: Layer> Phl<A> {
     pub fn new(above: A) -> Self {
         Self {
@@ -54,28 +75,6 @@ impl<A: Layer> Phl<A> {
             decoder: UmtsTurboDecoder::new(fastfec::catalog::UMTS),
             max_decode_iterations: 10,
         }
-    }
-
-    pub fn get_frame_length(buffer: &[u8]) -> Option<usize> {
-        if buffer.len() < HEADER_SIZE {
-            return None;
-        }
-
-        let mut reader = BitReader::from_slice(buffer);
-        reader.read_bits::<usize>(2)?; // Discard the two padding bits
-
-        let (header, _) = PhyCodedHeader::read(&mut reader)?;
-        let frame_length = Self::get_frame_length_from_header(&header);
-        Some(frame_length)
-    }
-
-    fn get_frame_length_from_header(header: &PhyCodedHeader) -> usize {
-        let block_length = header.data_length as usize + 4;
-        let parity_bits = match header.rate {
-            CodeRate::OneThird => (3 - 1) * (block_length * 8),
-            CodeRate::OneHalf => (2 - 1) * (block_length * 8),
-        };
-        HEADER_SIZE + block_length + (parity_bits + 7) / 8
     }
 
     fn validate_crc(data_length: usize, block: &[u8]) -> bool {
@@ -143,7 +142,7 @@ impl<A: Layer> Layer for Phl<A> {
 
         let (header, header_distance) =
             PhyCodedHeader::read(&mut reader).ok_or(ReadError::NotEnoughBytes)?;
-        let frame_length = Self::get_frame_length_from_header(&header);
+        let frame_length = get_frame_length_from_header(&header);
         if buffer.len() < frame_length {
             return Err(ReadError::NotEnoughBytes);
         }
