@@ -1,7 +1,10 @@
 use self::examples::*;
 use assert_hex::assert_eq_hex;
 use bitvec::prelude::*;
-use linkiq::stack::{Stack, mbal::{MbalFunctionCode, self}, Packet, phl};
+use linkiq::stack::{
+    mbal::{self, MbalFunctionCode},
+    phl, Packet, Stack,
+};
 use rand::prelude::*;
 
 #[test]

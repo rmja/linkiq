@@ -8,7 +8,6 @@ use super::LlrMul;
 #[derive(Default, Clone, Copy)]
 pub(crate) struct EncoderTermination(pub usize);
 
-
 impl EncoderTermination {
     pub(crate) fn append_output(&mut self, output: EncoderOutput) {
         let mut value = self.0;

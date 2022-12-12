@@ -1,6 +1,6 @@
-use crate::{bitreader::BitReader};
+use crate::bitreader::BitReader;
 
-use super::{encodertermination::EncoderTermination, LlrMul, CodeRate};
+use super::{encodertermination::EncoderTermination, CodeRate, LlrMul};
 use alloc::vec::Vec;
 use bitvec::prelude::Msb0;
 use fastfec::{convolutional::bcjr::BcjrSymbol, ratematching::Puncturer, turbo::TurboSymbol, Llr};
