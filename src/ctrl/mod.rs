@@ -1,12 +1,12 @@
 mod ctrl;
+mod delay;
 mod errors;
 mod noicefloor;
 mod transceiver;
-mod delay;
 
 pub type Rssi = i8;
-pub use errors::{ReceiveError, TransmitError};
 pub use ctrl::LinkIqCtrl;
+pub use errors::{ReceiveError, TransmitError};
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum Channel {

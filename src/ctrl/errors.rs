@@ -1,7 +1,5 @@
 #[derive(Debug)]
-pub enum TransmitError {
-
-}
+pub enum TransmitError {}
 
 #[derive(Debug)]
 pub enum ReceiveError {

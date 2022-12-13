@@ -9,12 +9,7 @@ pub struct WMBusAddress {
 }
 
 impl WMBusAddress {
-    pub fn new(
-        manufacturer_code: u16,
-        serial_number: u32,
-        version: u8,
-        device_type: u8,
-    ) -> Self {
+    pub fn new(manufacturer_code: u16, serial_number: u32, version: u8, device_type: u8) -> Self {
         Self {
             manufacturer_code,
             serial_number: BCD::new(serial_number as u128),

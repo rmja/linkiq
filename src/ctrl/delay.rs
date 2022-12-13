@@ -1,5 +1,5 @@
-use core::time::Duration;
 use alloc::boxed::Box;
+use core::time::Duration;
 
 use async_trait::async_trait;
 
