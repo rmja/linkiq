@@ -45,6 +45,8 @@ pub struct PhlFields {
     pub decode_distance: usize,
 }
 
+pub const MAX_FRAME_LENGTH: usize = HEADER_SIZE + 3 * 251;
+
 pub fn get_frame_length(buffer: &[u8]) -> Option<usize> {
     if buffer.len() < HEADER_SIZE {
         return None;

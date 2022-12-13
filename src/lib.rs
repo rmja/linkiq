@@ -12,3 +12,6 @@ mod phycodedheader;
 mod phyinterleaver;
 pub mod stack;
 pub mod wmbus;
+
+#[cfg(feature = "ctrl")]
+pub mod ctrl;
