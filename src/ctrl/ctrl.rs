@@ -8,7 +8,7 @@ use futures::{
 use crate::stack::phl;
 
 use super::{
-    delay::Delay, noicefloor::NoiceFloor, transceiver::Transceiver, Channel, TransmitError,
+    delay::Delay, noicefloor::NoiceFloor, adapters::Transceiver, Channel, TransmitError,
     CHANNEL_COUNT,
 };
 
@@ -180,7 +180,7 @@ mod tests {
 
     use crate::ctrl::{
         delay::TokioDelay,
-        transceiver::{MockAsyncTransceiver, MockTransceiver},
+        adapters::{MockAsyncTransceiver, MockTransceiver},
     };
 
     use super::*;

@@ -2,7 +2,7 @@ mod ctrl;
 mod delay;
 mod errors;
 mod noicefloor;
-mod transceiver;
+pub mod adapters;
 
 pub type Rssi = i8;
 pub use ctrl::LinkIqCtrl;

@@ -40,7 +40,7 @@ pub trait Transceiver {
 
 #[cfg(test)]
 mockall::mock! {
-    pub AsyncTransceiver {
+    pub(crate) AsyncTransceiver {
     }
 
     impl Transceiver for AsyncTransceiver {
