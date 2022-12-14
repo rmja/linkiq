@@ -13,7 +13,6 @@ impl Apl {
 impl Layer for Apl {
     fn read(&self, packet: &mut Packet, buffer: &[u8]) -> Result<(), ReadError> {
         packet.mbus_data = buffer.to_vec();
-
         Ok(())
     }
 

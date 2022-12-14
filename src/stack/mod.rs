@@ -6,6 +6,26 @@ pub mod apl;
 pub mod mbal;
 pub mod phl;
 
+/// The LinkIQ protocol stack
+pub struct Stack {
+    phl: phl::Phl<mbal::Mbal<apl::Apl>>,
+}
+
+/// Layer trait
+pub trait Layer {
+    fn read(&self, packet: &mut Packet, buffer: &[u8]) -> Result<(), ReadError>;
+    fn write(&self, writer: &mut Vec<u8>, packet: &Packet);
+}
+
+/// A LinkIQ packet
+#[derive(Default)]
+pub struct Packet {
+    pub uptime: Option<Duration>,
+    pub phl: Option<phl::PhlFields>,
+    pub mbal: Option<mbal::MbalFields>,
+    pub mbus_data: Vec<u8>,
+}
+
 #[derive(Debug)]
 pub enum ReadError {
     NotEnoughBytes,
@@ -14,26 +34,6 @@ pub enum ReadError {
     MBalControlError,
     MBalAddressError,
     MBalCommandError,
-}
-
-/// The LinkIQ protocol stack
-pub struct Stack {
-    phl: phl::Phl<mbal::Mbal<apl::Apl>>,
-}
-
-/// Layer trait that must be implemented by any layer.
-pub trait Layer {
-    fn read(&self, packet: &mut Packet, buffer: &[u8]) -> Result<(), ReadError>;
-    fn write(&self, writer: &mut Vec<u8>, packet: &Packet);
-}
-
-/// A single packet
-#[derive(Default)]
-pub struct Packet {
-    pub uptime: Option<Duration>,
-    pub phl: Option<phl::PhlFields>,
-    pub mbal: Option<mbal::MbalFields>,
-    pub mbus_data: Vec<u8>,
 }
 
 impl Stack {
