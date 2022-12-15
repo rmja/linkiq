@@ -47,17 +47,17 @@ pub struct PhlFields {
 
 pub const MAX_FRAME_LENGTH: usize = HEADER_SIZE + 3 * 251;
 
-pub fn get_frame_length(buffer: &[u8]) -> Option<usize> {
+pub fn get_frame_length(buffer: &[u8]) -> Result<usize, ReadError> {
     if buffer.len() < HEADER_SIZE {
-        return None;
+        return Err(ReadError::NotEnoughBytes);
     }
 
     let mut reader = BitReader::from_slice(buffer);
-    reader.read_bits::<usize>(2)?; // Discard the two padding bits
+    reader.read_bits::<usize>(2).unwrap(); // Discard the two padding bits
 
-    let (header, _) = PhyCodedHeader::read(&mut reader)?;
+    let (header, _) = PhyCodedHeader::read(&mut reader).unwrap();
     let frame_length = get_frame_length_from_header(&header);
-    Some(frame_length)
+    Ok(frame_length)
 }
 
 fn get_frame_length_from_header(header: &PhyCodedHeader) -> usize {
@@ -77,19 +77,6 @@ impl<A: Layer> Phl<A> {
             decoder: UmtsTurboDecoder::new(fastfec::catalog::UMTS),
             max_decode_iterations: 10,
         }
-    }
-
-    fn validate_crc(data_length: usize, block: &[u8]) -> bool {
-        assert_eq!(data_length + 4, block.len());
-
-        let mut digest = CRC.digest();
-        digest.update(&[data_length as u8]);
-        digest.update(&block[..data_length]);
-        let actual = digest.finalize();
-
-        let expected = u32::from_be_bytes(block[data_length..].try_into().unwrap());
-
-        actual == expected
     }
 
     fn distance<T: Integral>(first: &[T], second: &[T]) -> usize {
@@ -124,7 +111,7 @@ impl<A: Layer> Phl<A> {
                 hard.push(*llr > 0);
             }
 
-            if Self::validate_crc(data_length, &hard.as_raw_slice()) {
+            if is_valid_crc(data_length, &hard.as_raw_slice()) {
                 return Some((hard.as_raw_slice().to_vec(), iteration));
             }
 
@@ -157,7 +144,7 @@ impl<A: Layer> Layer for Phl<A> {
         let block_end = HEADER_SIZE + block_length;
         let block = &buffer[HEADER_SIZE..block_end];
 
-        if Self::validate_crc(data_length, block) {
+        if is_valid_crc(data_length, block) {
             packet.phl = Some(PhlFields {
                 code_rate: header.rate,
                 header_distance,
@@ -240,4 +227,17 @@ impl<A: Layer> Layer for Phl<A> {
         // Write parity
         writer.extend_from_slice(result.parity.as_raw_slice());
     }
+}
+
+fn is_valid_crc(data_length: usize, block: &[u8]) -> bool {
+    assert_eq!(data_length + 4, block.len());
+
+    let mut digest = CRC.digest();
+    digest.update(&[data_length as u8]);
+    digest.update(&block[..data_length]);
+    let actual = digest.finalize();
+
+    let expected = u32::from_be_bytes(block[data_length..].try_into().unwrap());
+
+    actual == expected
 }

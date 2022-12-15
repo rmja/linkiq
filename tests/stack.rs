@@ -79,12 +79,13 @@ fn can_read_example_case(
             }
         }
     }
-    // When
-    assert_eq!(vector.frame.len(), phl::get_frame_length(&frame).unwrap());
 
+    // When
     let packet = stack.read(&frame).unwrap();
 
     // Then
+    assert_eq!(vector.frame.len(), phl::get_frame_length(&frame).unwrap());
+
     let phl = packet.phl.unwrap();
     assert_eq!(vector.code_rate, phl.code_rate);
     assert_eq!(
@@ -103,6 +104,7 @@ fn can_read_example_case(
         vector.is_installation,
         mbal.command.function_code == MbalFunctionCode::SendInstallationRequest
     );
+    
     assert_eq!(vector.mbus_data, packet.mbus_data);
 }
 

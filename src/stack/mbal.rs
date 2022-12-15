@@ -42,26 +42,14 @@ impl<A: Layer> Mbal<A> {
     pub fn new(above: A) -> Self {
         Self { above }
     }
-
-    fn validate_crc(buffer: &[u8]) -> bool {
-        if buffer.len() < 2 {
-            return false;
-        }
-        let index = buffer.len() - 2;
-
-        let mut digest = CRC.digest();
-        digest.update(&buffer[..index]);
-        let actual = digest.finalize();
-
-        let expected = u16::from_be_bytes(buffer[index..].try_into().unwrap());
-
-        actual == expected
-    }
 }
 
 impl<A: Layer> Layer for Mbal<A> {
     fn read(&self, packet: &mut Packet, buffer: &[u8]) -> Result<(), ReadError> {
-        if !Self::validate_crc(&buffer[..HEADER_SIZE]) {
+        if buffer.len() < HEADER_SIZE {
+            return Err(ReadError::NotEnoughBytes);
+        }
+        else if !is_valid_crc(&buffer[..HEADER_SIZE]) {
             return Err(ReadError::MBalCrcError);
         }
 
@@ -113,4 +101,16 @@ impl<A: Layer> Layer for Mbal<A> {
 
         self.above.write(writer, packet)
     }
+}
+
+fn is_valid_crc(block: &[u8]) -> bool {
+    let index = block.len() - 2;
+
+    let mut digest = CRC.digest();
+    digest.update(&block[..index]);
+    let actual = digest.finalize();
+
+    let expected = u16::from_be_bytes(block[index..].try_into().unwrap());
+
+    actual == expected
 }

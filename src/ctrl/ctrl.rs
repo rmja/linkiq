@@ -140,7 +140,7 @@ impl<T: Transceiver, D: Delay> LinkIqCtrl<T, D> {
                             }
                             else {
                                 // Try and derive the frame length
-                                frame.length = phl::get_frame_length(&frame.buffer[..frame.received]);
+                                frame.length = phl::get_frame_length(&frame.buffer[..frame.received]).ok();
                             }
                         }
                         else {
