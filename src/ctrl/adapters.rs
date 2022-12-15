@@ -10,11 +10,8 @@ use super::{Channel, Rssi};
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait Transceiver {
-    /// Setup the transceiver
+    /// Setup the transceiver and enter idle state.
     async fn init(&mut self) -> Result<(), TransceiverError>;
-
-    /// Enter idle state.
-    async fn idle(&mut self);
 
     /// Set the current channel.
     /// This may be called when idle or when listening.
@@ -23,7 +20,7 @@ pub trait Transceiver {
     /// Prepare bytes for transmission.
     async fn write(&mut self, buffer: &[u8]);
 
-    /// Transmit already prepared bytes.
+    /// Transmit already prepared bytes and return to idle state.
     async fn transmit(&mut self) -> Result<(), TransceiverError>;
 
     /// Start receiver.
@@ -42,6 +39,9 @@ pub trait Transceiver {
 
     /// Get the current rssi.
     async fn get_rssi(&self) -> Rssi;
+
+    /// Enter idle state.
+    async fn idle(&mut self);
 }
 
 #[derive(Debug)]

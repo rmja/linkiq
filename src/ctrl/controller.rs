@@ -11,7 +11,7 @@ use super::{
     adapters::{Transceiver, TransceiverError},
     delay::Delay,
     noicefloor::NoiceFloor,
-    Channel, CHANNEL_COUNT,
+    Channel, CHANNEL_COUNT, Rssi,
 };
 
 /// LinkIQ Transceiver Controller
@@ -22,28 +22,25 @@ pub struct Controller<T: Transceiver, D: Delay> {
     current_channel: Channel,
     min_snr: i8,
     noisefloor: [NoiceFloor; CHANNEL_COUNT],
-    frame: Option<Frame>,
 }
 
 pub struct Frame {
-    timestamp: Duration,
+    pub timestamp: Duration,
+    pub rssi: Rssi,
     buffer: [u8; phl::MAX_FRAME_LENGTH],
     received: usize,
     length: Option<usize>,
 }
 
 impl Frame {
-    const fn new(timestamp: Duration) -> Self {
+    const fn new(timestamp: Duration, rssi: Rssi) -> Self {
         Self {
             timestamp,
+            rssi,
             buffer: [0; phl::MAX_FRAME_LENGTH],
             received: 0,
             length: None,
         }
-    }
-
-    pub fn timestamp(&self) -> Duration {
-        self.timestamp
     }
 
     pub fn bytes(&self) -> &[u8] {
@@ -66,7 +63,6 @@ impl<T: Transceiver, D: Delay> Controller<T, D> {
                 NoiceFloor::new(-110),
                 NoiceFloor::new(-110),
             ],
-            frame: None,
         }
     }
 
@@ -98,53 +94,54 @@ impl<T: Transceiver, D: Delay> Controller<T, D> {
             loop {
                 let rssi = self.transceiver.get_rssi().await;
                 let noicefloor = &mut self.noisefloor[self.current_channel.index()];
-                if rssi > noicefloor.value() + self.min_snr {
+                let mut frame = if rssi > noicefloor.value() + self.min_snr {
                     let timestamp = future::select(
                         self.transceiver.receive(),
                         self.delay.delay(Duration::from_millis(12))
                     ).await;
 
                     if let Either::Left((timestamp, _)) = timestamp {
-                        self.frame = Some(Frame::new(timestamp));
+                        Frame::new(timestamp, rssi)
                     }
                     else {
                         // Timeout
                         drop(timestamp);
                         self.set_next_channel().await;
+                        continue;
                     }
                 } else {
                     noicefloor.add(rssi);
 
                     self.set_next_channel().await;
-                }
+                    continue;
+                };
 
-                if let Some(mut frame) = self.frame.as_mut() {
-                    loop {
-                        let mut buffer = &mut frame.buffer[frame.received..];
-                        let received = self.transceiver.read(&mut buffer, frame.length).await;
+                // Frame was detected - read all frame bytes...
+                loop {
+                    let mut buffer = &mut frame.buffer[frame.received..];
+                    let received = self.transceiver.read(&mut buffer, frame.length).await;
 
-                        if let Ok(received) = received {
-                            frame.received += received;
+                    if let Ok(received) = received {
+                        frame.received += received;
 
-                            if let Some(framelen) = frame.length {
-                                if frame.received >= framelen {
-                                    let frame = self.frame.take().unwrap();
-                                    yield frame;
-                                    self.set_next_channel().await;
-                                    break;
-                                }
-                            }
-                            else {
-                                // Try and derive the frame length
-                                frame.length = phl::get_frame_length(&frame.buffer[..frame.received]).ok();
+                        if let Some(framelen) = frame.length {
+                            if frame.received >= framelen {
+                                // Frame is fully received
+                                yield frame;
+                                self.set_next_channel().await;
+                                break;
                             }
                         }
                         else {
-                            // Error during read - restart receive
-                            self.transceiver.idle().await;
-                            self.transceiver.listen().await;
-                            break;
+                            // Try and derive the frame length
+                            frame.length = phl::get_frame_length(&frame.buffer[..frame.received]).ok();
                         }
+                    }
+                    else {
+                        // Error during read - restart receiver
+                        self.transceiver.idle().await;
+                        self.transceiver.listen().await;
+                        break;
                     }
                 }
             }
