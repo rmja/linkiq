@@ -8,12 +8,12 @@ use futures::{
 use crate::stack::phl;
 
 use super::{
-    delay::Delay, noicefloor::NoiceFloor, adapters::Transceiver, Channel, TransmitError,
+    delay::Delay, noicefloor::NoiceFloor, adapters::{Transceiver, TransceiverError}, Channel,
     CHANNEL_COUNT,
 };
 
-/// LinkIQ Controller
-pub struct LinkIqCtrl<T: Transceiver, D: Delay> {
+/// LinkIQ Transceiver Controller
+pub struct Controller<T: Transceiver, D: Delay> {
     transceiver: T,
     delay: D,
     listening: bool,
@@ -49,7 +49,7 @@ impl Frame {
     }
 }
 
-impl<T: Transceiver, D: Delay> LinkIqCtrl<T, D> {
+impl<T: Transceiver, D: Delay> Controller<T, D> {
     /// Create a new controller
     pub const fn new(transceiver: T, delay: D) -> Self {
         Self {
@@ -68,12 +68,6 @@ impl<T: Transceiver, D: Delay> LinkIqCtrl<T, D> {
         }
     }
 
-    // Stop the receiver.
-    pub async fn idle(&mut self) {
-        self.transceiver.idle().await;
-        self.listening = false;
-    }
-
     /// Prepare bytes for transmission.
     /// All bytes for the transmission must be written before the transmission is started.
     pub async fn write(&mut self, buffer: &[u8]) {
@@ -83,7 +77,7 @@ impl<T: Transceiver, D: Delay> LinkIqCtrl<T, D> {
 
     /// Transmit pre-written bytes.
     /// The transmitter enters idle after the transmission completes.
-    pub async fn transmit(&mut self, channel: Channel) -> Result<(), TransmitError> {
+    pub async fn transmit(&mut self, channel: Channel) -> Result<(), TransceiverError> {
         assert!(!self.listening);
         self.current_channel = channel;
         self.transceiver.set_channel(channel).await;
@@ -100,7 +94,7 @@ impl<T: Transceiver, D: Delay> LinkIqCtrl<T, D> {
 
         stream! {
             loop {
-                let rssi = self.transceiver.read_rssi().await;
+                let rssi = self.transceiver.get_rssi().await;
                 let noicefloor = &mut self.noisefloor[self.current_channel.index()];
                 if rssi > noicefloor.value() + self.min_snr {
                     let timestamp = future::select(
@@ -166,6 +160,13 @@ impl<T: Transceiver, D: Delay> LinkIqCtrl<T, D> {
         // self.transceiver.set_channel(self.current_channel).await;
     }
 
+    // Stop the receiver.
+    pub async fn idle(&mut self) {
+        self.transceiver.idle().await;
+        self.listening = false;
+    }
+
+    /// Release the transceiver
     pub fn release(self) -> T {
         self.transceiver
     }
@@ -214,7 +215,7 @@ mod tests {
             .in_sequence(&mut seq)
             .returning(|| Ok(()));
 
-        let mut ctrl = LinkIqCtrl::new(transceiver, TokioDelay);
+        let mut ctrl = Controller::new(transceiver, TokioDelay);
 
         // When
         ctrl.write(&[0x01, 0x23]).await;
@@ -247,7 +248,7 @@ mod tests {
             .in_sequence(&mut seq)
             .return_const(());
 
-        let mut ctrl = LinkIqCtrl::new(transceiver, TokioDelay);
+        let mut ctrl = Controller::new(transceiver, TokioDelay);
 
         // When
         let stream = ctrl.receive().await;
@@ -269,7 +270,7 @@ mod tests {
         transceiver
             .expect_listen()
             .returning(|| Box::pin(future::ready(())));
-        transceiver.expect_read_rssi().returning(|| {
+        transceiver.expect_get_rssi().returning(|| {
             Box::pin(async {
                 time::sleep(Duration::from_millis(1)).await;
                 -120
@@ -279,7 +280,7 @@ mod tests {
             .expect_idle()
             .returning(|| Box::pin(future::ready(())));
 
-        let mut ctrl = LinkIqCtrl::new(transceiver, TokioDelay);
+        let mut ctrl = Controller::new(transceiver, TokioDelay);
 
         // When
         {
@@ -310,7 +311,7 @@ mod tests {
         transceiver
             .expect_listen()
             .returning(|| Box::pin(future::ready(())));
-        transceiver.expect_read_rssi().returning(|| {
+        transceiver.expect_get_rssi().returning(|| {
             Box::pin(async {
                 time::sleep(Duration::from_millis(1)).await;
                 -100
@@ -328,7 +329,7 @@ mod tests {
             .expect_idle()
             .returning(|| Box::pin(future::ready(())));
 
-        let mut ctrl = LinkIqCtrl::new(transceiver, TokioDelay);
+        let mut ctrl = Controller::new(transceiver, TokioDelay);
         let mut received = None;
 
         // When
