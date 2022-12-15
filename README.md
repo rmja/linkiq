@@ -2,7 +2,7 @@
 
 # linkiq
 
-Kamstrup OpenlinkIQ protocol implementation.
+Kamstrup OpenlinkIQ protocol stack and controller written in Rust.
 
 ## Usage
 
@@ -10,8 +10,11 @@ Add the crate to your `Cargo.toml` dependencies:
 
 ```toml
 [dependencies]
-linkiq = { git = "https://github.com/rmja/linkiq" }
+linkiq = { git = "https://github.com/rmja/linkiq", features = [] }
 ```
+
+where the list of features are:
+* `ctrl`: Adds transceiver controller for managing channel hopping, etc.
 
 ## References
 The OpenlinkIQ specification can be obtained from https://www.openlinkiq.org.
