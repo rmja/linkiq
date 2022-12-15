@@ -8,8 +8,10 @@ use futures::{
 use crate::stack::phl;
 
 use super::{
-    delay::Delay, noicefloor::NoiceFloor, adapters::{Transceiver, TransceiverError}, Channel,
-    CHANNEL_COUNT,
+    adapters::{Transceiver, TransceiverError},
+    delay::Delay,
+    noicefloor::NoiceFloor,
+    Channel, CHANNEL_COUNT,
 };
 
 /// LinkIQ Transceiver Controller
@@ -180,8 +182,8 @@ mod tests {
     use tokio::time;
 
     use crate::ctrl::{
-        delay::TokioDelay,
         adapters::{MockAsyncTransceiver, MockTransceiver},
+        delay::TokioDelay,
     };
 
     use super::*;

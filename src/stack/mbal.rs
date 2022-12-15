@@ -48,8 +48,7 @@ impl<A: Layer> Layer for Mbal<A> {
     fn read(&self, packet: &mut Packet, buffer: &[u8]) -> Result<(), ReadError> {
         if buffer.len() < HEADER_SIZE {
             return Err(ReadError::NotEnoughBytes);
-        }
-        else if !is_valid_crc(&buffer[..HEADER_SIZE]) {
+        } else if !is_valid_crc(&buffer[..HEADER_SIZE]) {
             return Err(ReadError::MBalCrcError);
         }
 

@@ -1,7 +1,7 @@
+pub mod adapters;
 mod controller;
 mod delay;
 mod noicefloor;
-pub mod adapters;
 
 pub type Rssi = i8;
 pub use controller::Controller;

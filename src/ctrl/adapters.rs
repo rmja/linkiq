@@ -10,7 +10,7 @@ use super::{Channel, Rssi};
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait Transceiver {
-    /// Setup the transceiver 
+    /// Setup the transceiver
     async fn init(&mut self) -> Result<(), TransceiverError>;
 
     /// Enter idle state.

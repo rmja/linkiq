@@ -104,7 +104,7 @@ fn can_read_example_case(
         vector.is_installation,
         mbal.command.function_code == MbalFunctionCode::SendInstallationRequest
     );
-    
+
     assert_eq!(vector.mbus_data, packet.mbus_data);
 }
 
