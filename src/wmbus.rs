@@ -1,9 +1,9 @@
-use bcd_numbers::BCD;
+use bcd::BcdNumber;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct WMBusAddress {
     pub manufacturer_code: u16,
-    pub serial_number: BCD<4>,
+    pub serial_number: BcdNumber<4>,
     pub version: u8,
     pub device_type: u8,
 }
@@ -12,7 +12,7 @@ impl WMBusAddress {
     pub fn new(manufacturer_code: u16, serial_number: u32, version: u8, device_type: u8) -> Self {
         Self {
             manufacturer_code,
-            serial_number: BCD::new(serial_number as u128),
+            serial_number: BcdNumber::from_u32(serial_number),
             version,
             device_type,
         }
@@ -48,7 +48,7 @@ impl TryFrom<&[u8]> for WMBusAddress {
         let mut serial_number = [0; 4];
         serial_number.copy_from_slice(&value[2..6]);
         serial_number.reverse();
-        let serial_number = BCD::<4>::try_from(serial_number).map_err(|_| ())?;
+        let serial_number = BcdNumber::try_from(serial_number).map_err(|_| ())?;
         let version = value[6];
         let device_type = value[7];
         Ok(WMBusAddress {
