@@ -16,7 +16,7 @@ Kamstrup OpenlinkIQ protocol.
 """
 
 [features]
-default = ["ctrl"]
+default = []
 ctrl = ["async-stream", "async-trait", "futures"]
 all = ["ctrl"]
 
