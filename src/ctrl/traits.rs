@@ -1,5 +1,3 @@
-use core::time::Duration;
-
 use alloc::boxed::Box;
 use async_trait::async_trait;
 #[cfg(test)]
@@ -7,9 +5,11 @@ use mockall::automock;
 
 use super::{Channel, Rssi};
 
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, automock(type Timestamp = core::time::Duration;))]
 #[async_trait]
 pub trait Transceiver: Send {
+    type Timestamp: Send;
+
     /// Setup the transceiver and enter idle state.
     async fn init(&mut self) -> Result<(), TransceiverError>;
 
@@ -28,7 +28,7 @@ pub trait Transceiver: Send {
 
     /// Try and receive a packet.
     /// The future will complete when a packet is detected.
-    async fn receive(&mut self) -> Duration;
+    async fn receive(&mut self) -> Self::Timestamp;
 
     /// Read bytes for the packet currently being received.
     async fn read<'a>(
@@ -53,7 +53,7 @@ pub enum TransceiverError {
 
 #[async_trait]
 pub trait Timer: Send {
-    async fn sleep(&self, duration: Duration);
+    async fn sleep_micros(&self, micros: u32);
 }
 
 #[cfg(test)]
@@ -62,6 +62,8 @@ mockall::mock! {
     }
 
     impl Transceiver for AsyncTransceiver {
+        type Timestamp = core::time::Duration;
+
         fn init<'a, 'async_trait>(&'a mut self) -> impl futures::future::Future<Output = Result<(), TransceiverError>> + Send + 'async_trait
         where
             'a: 'async_trait,
@@ -95,7 +97,7 @@ mockall::mock! {
         where
             'a: 'async_trait,
             Self: 'async_trait;
-        fn receive<'a, 'async_trait>(&'a mut self) -> impl futures::future::Future<Output = Duration> + Send + 'async_trait
+        fn receive<'a, 'async_trait>(&'a mut self) -> impl futures::future::Future<Output = core::time::Duration> + Send + 'async_trait
         where
             'a: 'async_trait,
             Self: 'async_trait;

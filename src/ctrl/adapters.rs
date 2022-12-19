@@ -10,8 +10,8 @@ pub mod tokio {
 
     #[async_trait]
     impl traits::Timer for TokioTimer {
-        async fn sleep(&self, duration: Duration) {
-            tokio::time::sleep(duration).await
+        async fn sleep_micros(&self, micros: u32) {
+            tokio::time::sleep(Duration::from_micros(micros as u64)).await
         }
     }
 }
