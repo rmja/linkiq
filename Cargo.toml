@@ -17,11 +17,10 @@ Kamstrup OpenlinkIQ protocol.
 
 [features]
 default = []
-ctrl = ["async-stream", "async-trait", "futures"]
+ctrl = ["futures-async-stream", "async-trait", "futures"]
 all = ["ctrl"]
 
 [dependencies]
-async-stream = { version = "0.3", optional = true }
 async-trait = { version = "0.1", optional = true }
 bcd = { git = "https://github.com/rmja/bcd" }
 bitvec = { version = "1", default-features = false, features = ["alloc"] }
@@ -29,6 +28,7 @@ crc = "2.0"
 fastfec = { git = "https://github.com/rmja/fastfec" }
 funty = { version = "2", default-features = false }
 futures = { version = "0.3.0", default-features = false, optional = true }
+futures-async-stream = { version = "0.2", optional = true }
 num-derive = "0.3"
 num-traits = { version = "0.2", default-features = false }
 

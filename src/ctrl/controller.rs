@@ -1,9 +1,10 @@
-use async_stream::stream;
+use alloc::boxed::Box;
 use core::time::Duration;
 use futures::{
     future::{self, Either},
     Stream,
 };
+use futures_async_stream::stream;
 
 use crate::stack::phl;
 
@@ -11,7 +12,7 @@ use super::{
     adapters::{Transceiver, TransceiverError},
     delay::Delay,
     noicefloor::NoiceFloor,
-    Channel, CHANNEL_COUNT, Rssi,
+    Channel, Rssi, CHANNEL_COUNT,
 };
 
 /// LinkIQ Transceiver Controller
@@ -84,65 +85,66 @@ impl<T: Transceiver, D: Delay> Controller<T, D> {
 
     /// Start and run receiver.
     /// Note that the receiver is _not_ stopped when the stream is dropped, so idle() must be called manually after the stream is dropped.
-    pub async fn receive<'a>(&'a mut self) -> impl Stream<Item = Frame> + 'a {
+    pub async fn receive<'a>(&'a mut self) -> impl Stream<Item = Frame> + Send + 'a {
         assert!(!self.listening);
         self.transceiver.set_channel(self.current_channel).await;
         self.transceiver.listen().await;
         self.listening = true;
 
-        stream! {
-            loop {
-                let rssi = self.transceiver.get_rssi().await;
-                let noicefloor = &mut self.noisefloor[self.current_channel.index()];
-                let mut frame = if rssi > noicefloor.value() + self.min_snr {
-                    let timestamp = future::select(
-                        self.transceiver.receive(),
-                        self.delay.delay(Duration::from_millis(12))
-                    ).await;
+        self.receive_stream()
+    }
 
-                    if let Either::Left((timestamp, _)) = timestamp {
-                        Frame::new(timestamp, rssi)
-                    }
-                    else {
-                        // Timeout
-                        drop(timestamp);
-                        self.set_next_channel().await;
-                        continue;
-                    }
+    #[stream(boxed, item = Frame)]
+    async fn receive_stream(&mut self) {
+        loop {
+            let rssi = self.transceiver.get_rssi().await;
+            let noicefloor = &mut self.noisefloor[self.current_channel.index()];
+            let mut frame = if rssi > noicefloor.value() + self.min_snr {
+                let timestamp = future::select(
+                    self.transceiver.receive(),
+                    self.delay.delay(Duration::from_millis(12)),
+                )
+                .await;
+
+                if let Either::Left((timestamp, _)) = timestamp {
+                    Frame::new(timestamp, rssi)
                 } else {
-                    noicefloor.add(rssi);
-
+                    // Timeout
+                    drop(timestamp);
                     self.set_next_channel().await;
                     continue;
-                };
+                }
+            } else {
+                noicefloor.add(rssi);
 
-                // Frame was detected - read all frame bytes...
-                loop {
-                    let mut buffer = &mut frame.buffer[frame.received..];
-                    let received = self.transceiver.read(&mut buffer, frame.length).await;
+                self.set_next_channel().await;
+                continue;
+            };
 
-                    if let Ok(received) = received {
-                        frame.received += received;
+            // Frame was detected - read all frame bytes...
+            loop {
+                let mut buffer = &mut frame.buffer[frame.received..];
+                let received = self.transceiver.read(&mut buffer, frame.length).await;
 
-                        if let Some(framelen) = frame.length {
-                            if frame.received >= framelen {
-                                // Frame is fully received
-                                yield frame;
-                                self.set_next_channel().await;
-                                break;
-                            }
+                if let Ok(received) = received {
+                    frame.received += received;
+
+                    if let Some(framelen) = frame.length {
+                        if frame.received >= framelen {
+                            // Frame is fully received
+                            yield frame;
+                            self.set_next_channel().await;
+                            break;
                         }
-                        else {
-                            // Try and derive the frame length
-                            frame.length = phl::get_frame_length(&frame.buffer[..frame.received]).ok();
-                        }
+                    } else {
+                        // Try and derive the frame length
+                        frame.length = phl::get_frame_length(&frame.buffer[..frame.received]).ok();
                     }
-                    else {
-                        // Error during read - restart receiver
-                        self.transceiver.idle().await;
-                        self.transceiver.listen().await;
-                        break;
-                    }
+                } else {
+                    // Error during read - restart receiver
+                    self.transceiver.idle().await;
+                    self.transceiver.listen().await;
+                    break;
                 }
             }
         }

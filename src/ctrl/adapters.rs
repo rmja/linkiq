@@ -9,7 +9,7 @@ use super::{Channel, Rssi};
 
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait Transceiver {
+pub trait Transceiver : Send {
     /// Setup the transceiver and enter idle state.
     async fn init(&mut self) -> Result<(), TransceiverError>;
 

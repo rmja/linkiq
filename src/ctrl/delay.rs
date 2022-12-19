@@ -4,7 +4,7 @@ use core::time::Duration;
 use async_trait::async_trait;
 
 #[async_trait]
-pub trait Delay {
+pub trait Delay : Send {
     async fn delay(&self, duration: Duration);
 }
 
