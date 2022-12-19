@@ -7,11 +7,7 @@ use futures_async_stream::stream;
 
 use crate::stack::phl;
 
-use super::{
-    noicefloor::NoiceFloor,
-    traits::{self, TransceiverError},
-    Channel, Rssi, CHANNEL_COUNT,
-};
+use super::{noicefloor::NoiceFloor, traits, Channel, Rssi, TransceiverError, CHANNEL_COUNT};
 
 /// LinkIQ Transceiver Controller
 pub struct Controller<Transceiver: traits::Transceiver, Timer: traits::Timer> {
@@ -87,7 +83,9 @@ where
 
     /// Start and run receiver.
     /// Note that the receiver is _not_ stopped when the stream is dropped, so idle() must be called manually after the stream is dropped.
-    pub async fn receive<'a>(&'a mut self) -> impl Stream<Item = Frame<Transceiver::Timestamp>> + Send + 'a {
+    pub async fn receive<'a>(
+        &'a mut self,
+    ) -> impl Stream<Item = Frame<Transceiver::Timestamp>> + Send + 'a {
         assert!(!self.listening);
         self.transceiver.set_channel(self.current_channel).await;
         self.transceiver.listen().await;
@@ -103,7 +101,8 @@ where
             let noicefloor = &mut self.noisefloor[self.current_channel.index()];
             let mut frame = if rssi > noicefloor.value() + self.min_snr {
                 let timestamp =
-                    future::select(self.transceiver.receive(), self.timer.sleep_micros(12_000)).await;
+                    future::select(self.transceiver.receive(), self.timer.sleep_micros(12_000))
+                        .await;
 
                 if let Either::Left((timestamp, _)) = timestamp {
                     Frame::new(timestamp, rssi)

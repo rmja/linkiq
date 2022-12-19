@@ -3,7 +3,7 @@ use async_trait::async_trait;
 #[cfg(test)]
 use mockall::automock;
 
-use super::{Channel, Rssi};
+use super::{Channel, Rssi, TransceiverError};
 
 #[cfg_attr(test, automock(type Timestamp = core::time::Duration;))]
 #[async_trait]
@@ -42,13 +42,6 @@ pub trait Transceiver: Send {
 
     /// Enter idle state.
     async fn idle(&mut self);
-}
-
-#[derive(Debug)]
-pub enum TransceiverError {
-    /// The transceiver was not found to be present
-    NotPresent,
-    Timeout,
 }
 
 #[async_trait]
