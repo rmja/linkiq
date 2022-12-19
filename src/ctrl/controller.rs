@@ -9,16 +9,15 @@ use futures_async_stream::stream;
 use crate::stack::phl;
 
 use super::{
-    adapters::{Transceiver, TransceiverError},
-    delay::Delay,
     noicefloor::NoiceFloor,
+    traits::{self, TransceiverError},
     Channel, Rssi, CHANNEL_COUNT,
 };
 
 /// LinkIQ Transceiver Controller
-pub struct Controller<T: Transceiver, D: Delay> {
-    transceiver: T,
-    delay: D,
+pub struct Controller<Transceiver: traits::Transceiver, Timer: traits::Timer> {
+    transceiver: Transceiver,
+    timer: Timer,
     listening: bool,
     current_channel: Channel,
     min_snr: i8,
@@ -49,12 +48,16 @@ impl Frame {
     }
 }
 
-impl<T: Transceiver, D: Delay> Controller<T, D> {
+impl<Transceiver, Timer> Controller<Transceiver, Timer>
+where
+    Transceiver: traits::Transceiver,
+    Timer: traits::Timer,
+{
     /// Create a new controller
-    pub const fn new(transceiver: T, delay: D) -> Self {
+    pub const fn new(transceiver: Transceiver, timer: Timer) -> Self {
         Self {
             transceiver,
-            delay,
+            timer,
             listening: false,
             current_channel: Channel::A,
             min_snr: 4,
@@ -102,7 +105,7 @@ impl<T: Transceiver, D: Delay> Controller<T, D> {
             let mut frame = if rssi > noicefloor.value() + self.min_snr {
                 let timestamp = future::select(
                     self.transceiver.receive(),
-                    self.delay.delay(Duration::from_millis(12)),
+                    self.timer.sleep(Duration::from_millis(12)),
                 )
                 .await;
 
@@ -168,7 +171,7 @@ impl<T: Transceiver, D: Delay> Controller<T, D> {
     }
 
     /// Release the transceiver
-    pub fn release(self) -> T {
+    pub fn release(self) -> Transceiver {
         self.transceiver
     }
 }
@@ -181,8 +184,8 @@ mod tests {
     use tokio::time;
 
     use crate::ctrl::{
-        adapters::{MockAsyncTransceiver, MockTransceiver},
-        delay::TokioDelay,
+        adapters::tokio::TokioTimer,
+        traits::{MockAsyncTransceiver, MockTransceiver},
     };
 
     use super::*;
@@ -216,7 +219,7 @@ mod tests {
             .in_sequence(&mut seq)
             .returning(|| Ok(()));
 
-        let mut ctrl = Controller::new(transceiver, TokioDelay);
+        let mut ctrl = Controller::new(transceiver, TokioTimer);
 
         // When
         ctrl.write(&[0x01, 0x23]).await;
@@ -249,7 +252,7 @@ mod tests {
             .in_sequence(&mut seq)
             .return_const(());
 
-        let mut ctrl = Controller::new(transceiver, TokioDelay);
+        let mut ctrl = Controller::new(transceiver, TokioTimer);
 
         // When
         let stream = ctrl.receive().await;
@@ -281,7 +284,7 @@ mod tests {
             .expect_idle()
             .returning(|| Box::pin(future::ready(())));
 
-        let mut ctrl = Controller::new(transceiver, TokioDelay);
+        let mut ctrl = Controller::new(transceiver, TokioTimer);
 
         // When
         {
@@ -330,7 +333,7 @@ mod tests {
             .expect_idle()
             .returning(|| Box::pin(future::ready(())));
 
-        let mut ctrl = Controller::new(transceiver, TokioDelay);
+        let mut ctrl = Controller::new(transceiver, TokioTimer);
         let mut received = None;
 
         // When
