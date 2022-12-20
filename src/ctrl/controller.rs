@@ -19,16 +19,16 @@ pub struct Controller<Transceiver: traits::Transceiver, Timer: traits::Timer> {
     noisefloor: [NoiceFloor; CHANNEL_COUNT],
 }
 
-pub struct Frame<T: Send> {
-    pub timestamp: T,
+pub struct Frame<Timestamp: Send> {
+    pub timestamp: Timestamp,
     pub rssi: Rssi,
     buffer: [u8; phl::MAX_FRAME_LENGTH],
     received: usize,
     length: Option<usize>,
 }
 
-impl<T: Send> Frame<T> {
-    const fn new(timestamp: T, rssi: Rssi) -> Self {
+impl<Timestamp: Send> Frame<Timestamp> {
+    const fn new(timestamp: Timestamp, rssi: Rssi) -> Self {
         Self {
             timestamp,
             rssi,

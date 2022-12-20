@@ -38,7 +38,7 @@ pub trait Transceiver: Send {
     ) -> Result<usize, TransceiverError>;
 
     /// Get the current rssi.
-    async fn get_rssi(&self) -> Rssi;
+    async fn get_rssi(&mut self) -> Rssi;
 
     /// Enter idle state.
     async fn idle(&mut self);
@@ -103,7 +103,7 @@ mockall::mock! {
             'a: 'async_trait,
             'b: 'async_trait,
             Self: 'async_trait;
-        fn get_rssi<'a, 'async_trait>(&'a self) -> impl futures::future::Future<Output = Rssi> + Send + 'async_trait
+        fn get_rssi<'a, 'async_trait>(&'a mut self) -> impl futures::future::Future<Output = Rssi> + Send + 'async_trait
         where
             'a: 'async_trait,
             Self: 'async_trait;
