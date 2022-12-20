@@ -7,7 +7,7 @@ use futures_async_stream::stream;
 
 use crate::stack::phl;
 
-use super::{noicefloor::NoiceFloor, traits, Channel, Rssi, TransceiverError, CHANNEL_COUNT};
+use super::{noicefloor::NoiceFloor, traits, Channel, Rssi, CHANNEL_COUNT};
 
 /// LinkIQ Transceiver Controller
 pub struct Controller<Transceiver: traits::Transceiver, Delay: traits::Delay> {
@@ -74,7 +74,7 @@ where
 
     /// Transmit pre-written bytes.
     /// The transmitter enters idle after the transmission completes.
-    pub async fn transmit(&mut self, channel: Channel) -> Result<(), TransceiverError> {
+    pub async fn transmit(&mut self, channel: Channel) -> Result<(), Transceiver::Error> {
         assert!(!self.listening);
         self.current_channel = channel;
         self.transceiver.set_channel(channel).await;

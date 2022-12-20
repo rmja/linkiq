@@ -1,14 +1,17 @@
+use core::fmt::Debug;
+
 #[cfg(test)]
 use mockall::automock;
 
-use super::{Channel, Rssi, TransceiverError};
+use super::{Channel, Rssi};
 
-#[cfg_attr(test, automock(type Timestamp = core::time::Duration;))]
+#[cfg_attr(test, automock(type Timestamp = core::time::Duration; type Error = ();))]
 pub trait Transceiver {
     type Timestamp;
+    type Error: Debug;
 
     /// Setup the transceiver and enter idle state.
-    async fn init(&mut self) -> Result<(), TransceiverError>;
+    async fn init(&mut self) -> Result<(), Self::Error>;
 
     /// Set the current channel.
     /// This may be called when idle or when listening.
@@ -18,7 +21,7 @@ pub trait Transceiver {
     async fn write(&mut self, buffer: &[u8]);
 
     /// Transmit already prepared bytes and return to idle state.
-    async fn transmit(&mut self) -> Result<(), TransceiverError>;
+    async fn transmit(&mut self) -> Result<(), Self::Error>;
 
     /// Start receiver.
     async fn listen(&mut self);
@@ -32,7 +35,7 @@ pub trait Transceiver {
         &'a mut self,
         buffer: &mut [u8],
         frame_length: Option<usize>,
-    ) -> Result<usize, TransceiverError>;
+    ) -> Result<usize, Self::Error>;
 
     /// Get the current rssi.
     async fn get_rssi(&mut self) -> Rssi;
@@ -52,15 +55,16 @@ mockall::mock! {
 
     impl Transceiver for AsyncTransceiver {
         type Timestamp = core::time::Duration;
+        type Error = ();
 
-        fn init(&mut self) -> impl futures::future::Future<Output = Result<(), TransceiverError>>;
+        fn init(&mut self) -> impl futures::future::Future<Output = Result<(), ()>>;
         fn idle(&mut self) -> impl futures::future::Future<Output = ()>;
         fn set_channel(&mut self, channel: Channel) -> impl futures::future::Future<Output = ()>;
         fn write(&mut self, buffer: &[u8]) -> impl futures::future::Future<Output = ()>;
-        fn transmit(&mut self) -> impl futures::future::Future<Output = Result<(), TransceiverError>>;
+        fn transmit(&mut self) -> impl futures::future::Future<Output = Result<(), ()>>;
         fn listen(&mut self) -> impl futures::future::Future<Output = ()>;
         fn receive(&mut self) -> impl futures::future::Future<Output = core::time::Duration>;
-        fn read(&mut self, buffer: &mut [u8], frame_length: Option<usize>) -> impl futures::future::Future<Output = Result<usize, TransceiverError>>;
+        fn read(&mut self, buffer: &mut [u8], frame_length: Option<usize>) -> impl futures::future::Future<Output = Result<usize, ()>>;
         fn get_rssi(&mut self) -> impl futures::future::Future<Output = Rssi>;
     }
 }

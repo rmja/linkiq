@@ -26,10 +26,3 @@ impl Channel {
 }
 
 pub const CHANNEL_COUNT: usize = 4;
-
-#[derive(Debug)]
-pub enum TransceiverError {
-    /// The transceiver was not found to be present
-    NotPresent,
-    Timeout,
-}
