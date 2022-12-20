@@ -42,7 +42,7 @@ pub trait Transceiver {
 }
 
 pub trait Delay {
-    async fn delay_micros(&self, micros: u32);
+    async fn delay_micros(&mut self, micros: u32);
 }
 
 #[cfg(test)]

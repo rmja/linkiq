@@ -7,7 +7,7 @@ pub mod tokio {
     pub struct TokioDelay;
 
     impl traits::Delay for TokioDelay {
-        async fn delay_micros(&self, micros: u32) {
+        async fn delay_micros(&mut self, micros: u32) {
             tokio::time::sleep(Duration::from_micros(micros as u64)).await
         }
     }
