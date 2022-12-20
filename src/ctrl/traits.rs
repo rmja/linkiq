@@ -1,14 +1,11 @@
-use alloc::boxed::Box;
-use async_trait::async_trait;
 #[cfg(test)]
 use mockall::automock;
 
 use super::{Channel, Rssi, TransceiverError};
 
 #[cfg_attr(test, automock(type Timestamp = core::time::Duration;))]
-#[async_trait]
-pub trait Transceiver: Send {
-    type Timestamp: Send;
+pub trait Transceiver {
+    type Timestamp;
 
     /// Setup the transceiver and enter idle state.
     async fn init(&mut self) -> Result<(), TransceiverError>;
@@ -44,9 +41,8 @@ pub trait Transceiver: Send {
     async fn idle(&mut self);
 }
 
-#[async_trait]
-pub trait Timer: Send {
-    async fn sleep_micros(&self, micros: u32);
+pub trait Delay {
+    async fn delay_micros(&self, micros: u32);
 }
 
 #[cfg(test)]
@@ -57,55 +53,14 @@ mockall::mock! {
     impl Transceiver for AsyncTransceiver {
         type Timestamp = core::time::Duration;
 
-        fn init<'a, 'async_trait>(&'a mut self) -> impl futures::future::Future<Output = Result<(), TransceiverError>> + Send + 'async_trait
-        where
-            'a: 'async_trait,
-            Self: 'async_trait;
-        fn idle<'a, 'async_trait>(&'a mut self) -> impl futures::future::Future<Output = ()> + Send + 'async_trait
-        where
-            'a: 'async_trait,
-            Self: 'async_trait;
-        fn set_channel<'a, 'async_trait>(
-            &'a mut self,
-            channel: Channel,
-        ) -> impl futures::future::Future<Output = ()> + Send + 'async_trait
-        where
-            'a: 'async_trait,
-            Self: 'async_trait;
-        fn write<'a, 'b, 'async_trait>(
-            &'a mut self,
-            buffer: &'b [u8],
-        ) -> impl futures::future::Future<Output = ()> + Send + 'async_trait
-        where
-            'a: 'async_trait,
-            'b: 'async_trait,
-            Self: 'async_trait;
-        fn transmit<'a, 'async_trait>(
-            &'a mut self,
-        ) -> impl futures::future::Future<Output = Result<(), TransceiverError>> + Send + 'async_trait
-        where
-            'a: 'async_trait,
-            Self: 'async_trait;
-        fn listen<'a, 'async_trait>(&'a mut self) -> impl futures::future::Future<Output = ()> + Send + 'async_trait
-        where
-            'a: 'async_trait,
-            Self: 'async_trait;
-        fn receive<'a, 'async_trait>(&'a mut self) -> impl futures::future::Future<Output = core::time::Duration> + Send + 'async_trait
-        where
-            'a: 'async_trait,
-            Self: 'async_trait;
-        fn read<'a, 'b, 'async_trait>(
-            &'a mut self,
-            buffer: &'b mut [u8],
-            frame_length: Option<usize>,
-        ) -> impl futures::future::Future<Output = Result<usize, TransceiverError>> + Send + 'async_trait
-        where
-            'a: 'async_trait,
-            'b: 'async_trait,
-            Self: 'async_trait;
-        fn get_rssi<'a, 'async_trait>(&'a mut self) -> impl futures::future::Future<Output = Rssi> + Send + 'async_trait
-        where
-            'a: 'async_trait,
-            Self: 'async_trait;
+        fn init(&mut self) -> impl futures::future::Future<Output = Result<(), TransceiverError>>;
+        fn idle(&mut self) -> impl futures::future::Future<Output = ()>;
+        fn set_channel(&mut self, channel: Channel) -> impl futures::future::Future<Output = ()>;
+        fn write(&mut self, buffer: &[u8]) -> impl futures::future::Future<Output = ()>;
+        fn transmit(&mut self) -> impl futures::future::Future<Output = Result<(), TransceiverError>>;
+        fn listen(&mut self) -> impl futures::future::Future<Output = ()>;
+        fn receive(&mut self) -> impl futures::future::Future<Output = core::time::Duration>;
+        fn read(&mut self, buffer: &mut [u8], frame_length: Option<usize>) -> impl futures::future::Future<Output = Result<usize, TransceiverError>>;
+        fn get_rssi(&mut self) -> impl futures::future::Future<Output = Rssi>;
     }
 }

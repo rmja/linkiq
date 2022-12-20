@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
 use futures::{
     future::{self, Either},
-    Stream,
+    pin_mut, Stream,
 };
 use futures_async_stream::stream;
 
@@ -10,16 +10,16 @@ use crate::stack::phl;
 use super::{noicefloor::NoiceFloor, traits, Channel, Rssi, TransceiverError, CHANNEL_COUNT};
 
 /// LinkIQ Transceiver Controller
-pub struct Controller<Transceiver: traits::Transceiver, Timer: traits::Timer> {
+pub struct Controller<Transceiver: traits::Transceiver, Delay: traits::Delay> {
     transceiver: Transceiver,
-    timer: Timer,
+    delay: Delay,
     listening: bool,
     current_channel: Channel,
     min_snr: i8,
     noisefloor: [NoiceFloor; CHANNEL_COUNT],
 }
 
-pub struct Frame<Timestamp: Send> {
+pub struct Frame<Timestamp> {
     pub timestamp: Timestamp,
     pub rssi: Rssi,
     buffer: [u8; phl::MAX_FRAME_LENGTH],
@@ -27,7 +27,7 @@ pub struct Frame<Timestamp: Send> {
     length: Option<usize>,
 }
 
-impl<Timestamp: Send> Frame<Timestamp> {
+impl<Timestamp> Frame<Timestamp> {
     const fn new(timestamp: Timestamp, rssi: Rssi) -> Self {
         Self {
             timestamp,
@@ -43,16 +43,16 @@ impl<Timestamp: Send> Frame<Timestamp> {
     }
 }
 
-impl<Transceiver, Timer> Controller<Transceiver, Timer>
+impl<Transceiver, Delay> Controller<Transceiver, Delay>
 where
     Transceiver: traits::Transceiver,
-    Timer: traits::Timer,
+    Delay: traits::Delay,
 {
     /// Create a new controller
-    pub const fn new(transceiver: Transceiver, timer: Timer) -> Self {
+    pub const fn new(transceiver: Transceiver, delay: Delay) -> Self {
         Self {
             transceiver,
-            timer,
+            delay,
             listening: false,
             current_channel: Channel::A,
             min_snr: 4,
@@ -85,7 +85,7 @@ where
     /// Note that the receiver is _not_ stopped when the stream is dropped, so idle() must be called manually after the stream is dropped.
     pub async fn receive<'a>(
         &'a mut self,
-    ) -> impl Stream<Item = Frame<Transceiver::Timestamp>> + Send + 'a {
+    ) -> impl Stream<Item = Frame<Transceiver::Timestamp>> + 'a {
         assert!(!self.listening);
         self.transceiver.set_channel(self.current_channel).await;
         self.transceiver.listen().await;
@@ -94,21 +94,32 @@ where
         self.receive_stream()
     }
 
-    #[stream(boxed, item = Frame<Transceiver::Timestamp>)]
+    #[stream(boxed_local, item = Frame<Transceiver::Timestamp>)]
     async fn receive_stream(&mut self) {
         loop {
             let rssi = self.transceiver.get_rssi().await;
             let noicefloor = &mut self.noisefloor[self.current_channel.index()];
             let mut frame = if rssi > noicefloor.value() + self.min_snr {
-                let timestamp =
-                    future::select(self.transceiver.receive(), self.timer.sleep_micros(12_000))
-                        .await;
+                let frame = {
+                    let receive_future = self.transceiver.receive();
+                    let timeout_future = self.delay.delay_micros(12_000);
+                    pin_mut!(receive_future);
+                    pin_mut!(timeout_future);
 
-                if let Either::Left((timestamp, _)) = timestamp {
-                    Frame::new(timestamp, rssi)
+                    if let Either::Left((timestamp, _)) =
+                        future::select(receive_future, timeout_future).await
+                    {
+                        Some(Frame::new(timestamp, rssi))
+                    } else {
+                        // Timeout
+                        None
+                    }
+                };
+
+                if let Some(frame) = frame {
+                    frame
                 } else {
                     // Timeout
-                    drop(timestamp);
                     self.set_next_channel().await;
                     continue;
                 }
@@ -179,7 +190,7 @@ mod tests {
     use tokio::time;
 
     use crate::ctrl::{
-        adapters::tokio::TokioTimer,
+        adapters::tokio::TokioDelay,
         traits::{MockAsyncTransceiver, MockTransceiver},
     };
 
@@ -214,7 +225,7 @@ mod tests {
             .in_sequence(&mut seq)
             .returning(|| Ok(()));
 
-        let mut ctrl = Controller::new(transceiver, TokioTimer);
+        let mut ctrl = Controller::new(transceiver, TokioDelay);
 
         // When
         ctrl.write(&[0x01, 0x23]).await;
@@ -247,7 +258,7 @@ mod tests {
             .in_sequence(&mut seq)
             .return_const(());
 
-        let mut ctrl = Controller::new(transceiver, TokioTimer);
+        let mut ctrl = Controller::new(transceiver, TokioDelay);
 
         // When
         let stream = ctrl.receive().await;
@@ -279,7 +290,7 @@ mod tests {
             .expect_idle()
             .returning(|| Box::pin(future::ready(())));
 
-        let mut ctrl = Controller::new(transceiver, TokioTimer);
+        let mut ctrl = Controller::new(transceiver, TokioDelay);
 
         // When
         {
@@ -328,7 +339,7 @@ mod tests {
             .expect_idle()
             .returning(|| Box::pin(future::ready(())));
 
-        let mut ctrl = Controller::new(transceiver, TokioTimer);
+        let mut ctrl = Controller::new(transceiver, TokioDelay);
         let mut received = None;
 
         // When
