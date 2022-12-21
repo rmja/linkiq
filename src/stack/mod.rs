@@ -56,3 +56,9 @@ impl Stack {
         self.phl.write(writer, packet)
     }
 }
+
+impl Default for Stack {
+    fn default() -> Self {
+        Self::new()
+    }
+}

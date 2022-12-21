@@ -152,7 +152,7 @@ fn can_write_example_case(vector: &ExampleVector) {
     assert_eq_hex!(vector.frame, &writer);
 }
 
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 mod examples {
     use once_cell::sync::Lazy;
     use linkiq::{fec::CodeRate, wmbus::WMBusAddress};

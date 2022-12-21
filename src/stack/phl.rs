@@ -61,7 +61,8 @@ pub fn get_frame_length(buffer: &[u8]) -> Result<usize, ReadError> {
 }
 
 fn get_frame_length_from_header(header: &PhyCodedHeader) -> usize {
-    let block_length = header.data_length as usize + 4;
+    let block_length = header.data_length + 4;
+    #[allow(clippy::identity_op)]
     let parity_bits = match header.rate {
         CodeRate::OneThird => (3 - 1) * (block_length * 8),
         CodeRate::OneHalf => (2 - 1) * (block_length * 8),
@@ -86,7 +87,7 @@ impl<A: Layer> Phl<A> {
         for i in 0..first.len() {
             distance += (first[i] ^ second[i]).count_ones() as usize;
         }
-        return distance;
+        distance
     }
 
     fn run_decoder(
@@ -111,7 +112,7 @@ impl<A: Layer> Phl<A> {
                 hard.push(*llr > 0);
             }
 
-            if is_valid_crc(data_length, &hard.as_raw_slice()) {
+            if is_valid_crc(data_length, hard.as_raw_slice()) {
                 return Some((hard.as_raw_slice().to_vec(), iteration));
             }
 
@@ -139,7 +140,7 @@ impl<A: Layer> Layer for Phl<A> {
         let first_termination = EncoderTermination(reader.read_bits(6).unwrap());
         let second_termination = EncoderTermination(reader.read_bits(6).unwrap());
 
-        let data_length = header.data_length as usize;
+        let data_length = header.data_length;
         let block_length = data_length + 4; // CRC32 is part of the encoded block
         let block_end = HEADER_SIZE + block_length;
         let block = &buffer[HEADER_SIZE..block_end];

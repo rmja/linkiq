@@ -199,7 +199,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(rustfmt, rustfmt_skip)]
+    #[rustfmt::skip]
     fn can_encode_turbo_test_vectors() {
         can_encode_turbo_test_vector_case(
             CodeRate::OneHalf,

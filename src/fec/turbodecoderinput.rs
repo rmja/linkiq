@@ -43,9 +43,9 @@ impl TurboDecoderInput {
         }
 
         // Read second encoder parity
-        for i in 0..8 * block.len() {
+        for symbol in symbols.iter_mut().take(8 * block.len()) {
             if second_puncturer.read_output() {
-                symbols[i].second_parity = parity_reader.read_bit().unwrap().mul(snr);
+                symbol.second_parity = parity_reader.read_bit().unwrap().mul(snr);
             }
         }
 
