@@ -132,8 +132,8 @@ where
 
             // Frame was detected - read all frame bytes...
             loop {
-                let mut buffer = &mut frame.buffer[frame.received..];
-                let received = self.transceiver.read(&mut buffer, frame.length).await;
+                let buffer = &mut frame.buffer[frame.received..];
+                let received = self.transceiver.read(buffer, frame.length).await;
 
                 if let Ok(received) = received {
                     frame.received += received;
