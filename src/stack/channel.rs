@@ -1,4 +1,4 @@
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(FromPrimitive, ToPrimitive, PartialEq, Clone, Copy, Debug)]
 pub enum Channel {
     A,
     B,
@@ -7,13 +7,10 @@ pub enum Channel {
 }
 
 impl Channel {
-    pub fn index(&self) -> usize {
-        match self {
-            Channel::A => 0,
-            Channel::B => 1,
-            Channel::C => 2,
-            Channel::D => 3,
-        }
+    pub const fn frequency(&self) -> u32 {
+        let channel = *self as u32;
+        868_450_000 + 40_000 * channel
     }
 }
+
 pub(crate) const CHANNEL_COUNT: usize = 4;

@@ -112,7 +112,7 @@ where
     async fn receive_stream(&mut self) {
         loop {
             let rssi = self.transceiver.get_rssi().await.unwrap();
-            let noicefloor = &mut self.noisefloor[self.current_channel.index()];
+            let noicefloor = &mut self.noisefloor[self.current_channel as usize];
             let mut token = if rssi > noicefloor.value() + self.min_snr {
                 let token = {
                     let token_future = self.transceiver.receive(phl::HEADER_SIZE);
