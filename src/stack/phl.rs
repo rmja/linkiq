@@ -17,7 +17,7 @@ use crate::{
 
 use super::{Layer, Packet, ReadError};
 
-const HEADER_SIZE: usize = 12;
+pub const HEADER_SIZE: usize = 12;
 const CRC_ALGORITHM: Algorithm<u32> = Algorithm::<u32> {
     poly: 0xf4acfb13,
     init: 0x00000000,

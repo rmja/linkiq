@@ -11,13 +11,14 @@ description = "Kamstrup OpenlinkIQ protocol"
 
 [features]
 default = []
-ctrl = ["futures", "futures-async-stream"]
+ctrl = ["futures", "futures-async-stream", "embedded-hal-async"]
 all = ["ctrl"]
 
 [dependencies]
 bcd = { git = "https://github.com/rmja/bcd" }
 bitvec = { version = "1", default-features = false, features = ["alloc"] }
 crc = "2.0"
+embedded-hal-async = { version = "0.2.0-alpha.0", optional = true }
 fastfec = { git = "https://github.com/rmja/fastfec" }
 funty = { version = "2", default-features = false }
 futures = { version = "0.3.0", default-features = false, optional = true }

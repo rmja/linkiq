@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+use embedded_hal_async::delay::DelayUs;
 use futures::{
     future::{self, Either},
     pin_mut, Stream,
@@ -10,7 +11,7 @@ use crate::stack::phl;
 use super::{noicefloor::NoiceFloor, traits, Channel, Rssi, CHANNEL_COUNT};
 
 /// LinkIQ Transceiver Controller
-pub struct Controller<Transceiver: traits::Transceiver, Delay: traits::Delay> {
+pub struct Controller<Transceiver: traits::Transceiver, Delay: DelayUs> {
     transceiver: Transceiver,
     delay: Delay,
     listening: bool,
@@ -46,7 +47,7 @@ impl<Timestamp> Frame<Timestamp> {
 impl<Transceiver, Delay> Controller<Transceiver, Delay>
 where
     Transceiver: traits::Transceiver,
-    Delay: traits::Delay,
+    Delay: DelayUs,
 {
     /// Create a new controller
     pub const fn new(transceiver: Transceiver, delay: Delay) -> Self {
@@ -108,8 +109,8 @@ where
             let mut frame = if rssi > noicefloor.value() + self.min_snr {
                 let frame = {
                     let receive_future = self.transceiver.receive();
-                    let timeout_future = self.delay.delay_micros(12_000);
                     pin_mut!(receive_future);
+                    let timeout_future = self.delay.delay_us(12_000);
                     pin_mut!(timeout_future);
 
                     if let Either::Left((timestamp, _)) =
