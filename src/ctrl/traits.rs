@@ -3,7 +3,7 @@ use core::fmt::Debug;
 #[cfg(test)]
 use mockall::automock;
 
-use super::{Channel, Rssi};
+use crate::stack::{Channel, Rssi};
 
 #[cfg_attr(test, automock(type Timestamp = core::time::Duration; type RxToken = stubs::RxTokenStub; type Error = ();))]
 pub trait Transceiver {

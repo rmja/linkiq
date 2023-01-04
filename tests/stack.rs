@@ -121,7 +121,7 @@ fn can_write_example_case(vector: &ExampleVector) {
     let stack = Stack::new();
     let mut writer = Vec::new();
     let packet = Packet {
-        uptime: None,
+        rssi: None,
         phl: Some(phl::PhlFields {
             code_rate: vector.code_rate,
             header_distance: 0,

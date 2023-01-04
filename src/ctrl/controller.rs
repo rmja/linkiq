@@ -8,10 +8,10 @@ use futures_async_stream::stream;
 
 use crate::{
     ctrl::traits::RxToken,
-    stack::{phl, ReadError},
+    stack::{phl, ReadError, Channel, channel::CHANNEL_COUNT, Rssi},
 };
 
-use super::{noicefloor::NoiceFloor, traits, Channel, Rssi, CHANNEL_COUNT};
+use super::{noicefloor::NoiceFloor, traits};
 
 /// LinkIQ Transceiver Controller
 pub struct Controller<Transceiver: traits::Transceiver, Delay: DelayUs> {

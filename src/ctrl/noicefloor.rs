@@ -1,4 +1,4 @@
-use super::Rssi;
+use crate::stack::Rssi;
 
 pub(crate) struct NoiceFloor {
     value: Rssi,
