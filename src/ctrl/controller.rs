@@ -5,9 +5,6 @@ use futures::{
 };
 use futures_async_stream::stream;
 
-#[cfg(test)]
-use alloc::boxed::Box;
-
 use crate::{
     ctrl::traits::RxToken,
     stack::{phl, Channel, ReadError, Rssi},
@@ -112,8 +109,7 @@ where
         Ok(self.receive_stream())
     }
 
-    #[cfg_attr(test, stream(boxed_local, item = Frame<Transceiver::Timestamp>))]
-    #[cfg_attr(not(test), stream(item = Frame<Transceiver::Timestamp>))]
+    #[stream(item = Frame<Transceiver::Timestamp>)]
     async fn receive_stream(&mut self) {
         loop {
             // Make time for test to yield as all mocked futures are completed
@@ -376,8 +372,8 @@ mod tests {
 
         // When
         let received = {
-            let mut stream = ctrl.receive().await.unwrap();
-            // pin_mut!(stream);
+            let stream = ctrl.receive().await.unwrap();
+            pin_mut!(stream);
 
             stream.next().await
         };
