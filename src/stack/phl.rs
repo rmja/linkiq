@@ -90,11 +90,11 @@ impl<A: Layer> Phl<A> {
         distance
     }
 
-    fn run_decoder(
+    fn run_decoder<const N: usize>(
         &self,
         data_length: usize,
-        input: &TurboDecoderInput,
-    ) -> Option<(Vec<u8, { mbal::MBAL_MAX + 4 }>, usize)> {
+        input: &TurboDecoderInput<N>,
+    ) -> Option<(Vec<u8, N>, usize)> {
         let interleaver = phyinterleaver::create(input.symbols.len())?;
         let mut decoding = self.decoder.decode(
             &input.symbols,
@@ -158,7 +158,7 @@ impl<A: Layer> Layer for Phl<A> {
             let parity = &buffer[HEADER_SIZE + block_length..];
             // TODO
             const SNR: Llr = 4;
-            let input = TurboDecoderInput::new(
+            let input = TurboDecoderInput::<{8 * (mbal::MBAL_MAX + 4)}>::new(
                 header.rate,
                 block,
                 parity,

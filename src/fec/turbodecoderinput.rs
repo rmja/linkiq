@@ -1,17 +1,17 @@
 use crate::bitreader::BitReader;
 
 use super::{encodertermination::EncoderTermination, CodeRate, LlrMul};
-use alloc::vec::Vec;
+use heapless::Vec;
 use bitvec::prelude::Msb0;
 use fastfec::{convolutional::bcjr::BcjrSymbol, ratematching::Puncturer, turbo::TurboSymbol, Llr};
 
-pub(crate) struct TurboDecoderInput {
-    pub symbols: Vec<TurboSymbol>,
+pub(crate) struct TurboDecoderInput<const N: usize> {
+    pub symbols: Vec<TurboSymbol, N>,
     pub first_termination: [BcjrSymbol; 3],
     pub second_termination: [BcjrSymbol; 3],
 }
 
-impl TurboDecoderInput {
+impl<const N: usize> TurboDecoderInput<N> {
     pub fn new(
         rate: CodeRate,
         block: &[u8],
@@ -27,7 +27,7 @@ impl TurboDecoderInput {
             (Puncturer::new(2, 0b10), Puncturer::new(2, 0b01))
         };
 
-        let mut symbols = Vec::with_capacity(8 * block.len());
+        let mut symbols = Vec::new();
         let mut systematic_reader = BitReader::<u8, Msb0>::from_slice(block);
         let mut parity_reader = BitReader::<u8, Msb0>::from_slice(parity);
 
@@ -39,7 +39,7 @@ impl TurboDecoderInput {
             } else {
                 0
             };
-            symbols.push(TurboSymbol::new(systematic, first_parity, 0));
+            symbols.push(TurboSymbol::new(systematic, first_parity, 0)).map_err(|_| ()).unwrap();
         }
 
         // Read second encoder parity
