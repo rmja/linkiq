@@ -13,12 +13,16 @@ pub struct Stack {
 /// Layer trait
 pub trait Layer {
     fn read<const N: usize>(&self, packet: &mut Packet<N>, buffer: &[u8]) -> Result<(), ReadError>;
-    fn write<const N: usize>(&self, writer: &mut impl Writer, packet: &Packet<N>) -> Result<(), WriteError>;
+    fn write<const N: usize>(
+        &self,
+        writer: &mut impl Writer,
+        packet: &Packet<N>,
+    ) -> Result<(), WriteError>;
 }
 
 /// A LinkIQ packet
 #[derive(Default)]
-pub struct Packet<const N: usize = {apl::MBUS_DATA_MAX}> {
+pub struct Packet<const N: usize = { apl::MBUS_DATA_MAX }> {
     pub rssi: Option<Rssi>,
     pub phl: Option<phl::PhlFields>,
     pub mbal: Option<mbal::MbalFields>,
@@ -80,7 +84,11 @@ impl Stack {
     }
 
     /// Write a packet
-    pub fn write<const N: usize>(&self, writer: &mut impl Writer, packet: &Packet<N>) -> Result<(), WriteError> {
+    pub fn write<const N: usize>(
+        &self,
+        writer: &mut impl Writer,
+        packet: &Packet<N>,
+    ) -> Result<(), WriteError> {
         self.phl.write(writer, packet)
     }
 }

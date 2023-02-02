@@ -1,4 +1,4 @@
-use super::{Layer, Packet, ReadError, Writer, WriteError, mbal};
+use super::{mbal, Layer, Packet, ReadError, WriteError, Writer};
 use heapless::Vec;
 
 pub const MBUS_DATA_MAX: usize = mbal::MBAL_MAX - mbal::HEADER_SIZE;
@@ -18,7 +18,11 @@ impl Layer for Apl {
         Ok(())
     }
 
-    fn write<const N: usize>(&self, writer: &mut impl Writer, packet: &Packet<N>) -> Result<(), WriteError> {
+    fn write<const N: usize>(
+        &self,
+        writer: &mut impl Writer,
+        packet: &Packet<N>,
+    ) -> Result<(), WriteError> {
         writer.write(&packet.mbus_data)
     }
 }

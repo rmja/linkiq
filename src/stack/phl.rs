@@ -4,17 +4,18 @@ use fastfec::{
     turbo::{umts::UmtsTurboDecoder, TurboEncoder},
     Llr,
 };
-use heapless::Vec;
 use funty::Integral;
+use heapless::Vec;
 
 use crate::{
     bitreader::{BitField, BitReader},
     fec::{CodeRate, EncoderTermination, TurboDecoderInput, TurboEncoderOutput},
     phycodedheader::PhyCodedHeader,
-    phyinterleaver, stack::mbal,
+    phyinterleaver,
+    stack::mbal,
 };
 
-use super::{Layer, Packet, ReadError, Writer, WriteError};
+use super::{Layer, Packet, ReadError, WriteError, Writer};
 
 pub const HEADER_SIZE: usize = 12;
 const CRC_ALGORITHM: Algorithm<u32> = Algorithm::<u32> {
@@ -93,7 +94,7 @@ impl<A: Layer> Phl<A> {
         &self,
         data_length: usize,
         input: &TurboDecoderInput,
-    ) -> Option<(Vec<u8, {mbal::MBAL_MAX + 4}>, usize)> {
+    ) -> Option<(Vec<u8, { mbal::MBAL_MAX + 4 }>, usize)> {
         let interleaver = phyinterleaver::create(input.symbols.len())?;
         let mut decoding = self.decoder.decode(
             &input.symbols,
@@ -180,9 +181,13 @@ impl<A: Layer> Layer for Phl<A> {
         }
     }
 
-    fn write<const N: usize>(&self, writer: &mut impl Writer, packet: &Packet<N>) -> Result<(), WriteError> {
+    fn write<const N: usize>(
+        &self,
+        writer: &mut impl Writer,
+        packet: &Packet<N>,
+    ) -> Result<(), WriteError> {
         let fields = packet.phl.as_ref().unwrap();
-        let mut block = Vec::<u8, {mbal::MBAL_MAX + 4}>::new();
+        let mut block = Vec::<u8, { mbal::MBAL_MAX + 4 }>::new();
 
         // Write above layers to block
         self.above.write(&mut block, packet)?;
@@ -194,7 +199,9 @@ impl<A: Layer> Layer for Phl<A> {
         let crc = digest.finalize();
 
         // Append CRC to block
-        block.extend_from_slice(crc.to_be_bytes().as_slice()).map_err(|_| WriteError::Capacity)?;
+        block
+            .extend_from_slice(crc.to_be_bytes().as_slice())
+            .map_err(|_| WriteError::Capacity)?;
 
         // Run Turbo encoder
         let input = block.view_bits::<Msb0>();

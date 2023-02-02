@@ -60,29 +60,6 @@ pub trait RxToken<Timestamp: Copy> {
 }
 
 #[cfg(test)]
-mockall::mock! {
-    pub(crate) AsyncTransceiver {
-    }
-
-    impl Transceiver for AsyncTransceiver {
-        type Timestamp = core::time::Duration;
-        type RxToken = stubs::RxTokenStub;
-        type Error = ();
-
-        fn init(&mut self) -> impl futures::future::Future<Output = Result<(), ()>>;
-        fn set_channel(&mut self, channel: Channel) -> impl futures::future::Future<Output = Result<(), ()>>;
-        fn write(&mut self, buffer: &[u8]) -> impl futures::future::Future<Output = Result<(), ()>>;
-        fn transmit(&mut self) -> impl futures::future::Future<Output = Result<(), ()>>;
-        fn listen(&mut self) -> impl futures::future::Future<Output = Result<(), ()>>;
-        fn receive(&mut self, min_frame_length: usize) -> impl futures::future::Future<Output = Result<stubs::RxTokenStub, ()>>;
-        fn get_rssi(&mut self) -> impl futures::future::Future<Output = Result<Rssi, ()>>;
-        fn read(&mut self, token: &mut stubs::RxTokenStub, buffer: &mut [u8]) -> impl futures::future::Future<Output = Result<usize, ()>>;
-        fn accept(&mut self, token: &mut stubs::RxTokenStub, frame_length: usize) -> impl futures::future::Future<Output = Result<(), ()>>;
-        fn idle(&mut self) -> impl futures::future::Future<Output = Result<(), ()>>;
-    }
-}
-
-#[cfg(test)]
 pub mod stubs {
     use super::RxToken;
 

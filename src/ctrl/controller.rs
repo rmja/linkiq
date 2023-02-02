@@ -5,9 +5,12 @@ use futures::{
 };
 use futures_async_stream::stream;
 
+#[cfg(test)]
+use alloc::boxed::Box;
+
 use crate::{
     ctrl::traits::RxToken,
-    stack::{phl, ReadError, Channel, Rssi},
+    stack::{phl, Channel, ReadError, Rssi},
 };
 
 use super::{noicefloor::NoiceFloor, traits};
@@ -109,9 +112,14 @@ where
         Ok(self.receive_stream())
     }
 
-    #[stream(item = Frame<Transceiver::Timestamp>)]
+    #[cfg_attr(test, stream(boxed_local, item = Frame<Transceiver::Timestamp>))]
+    #[cfg_attr(not(test), stream(item = Frame<Transceiver::Timestamp>))]
     async fn receive_stream(&mut self) {
         loop {
+            // Make time for test to yield as all mocked futures are completed
+            #[cfg(test)]
+            self.delay.delay_us(0).await.unwrap();
+
             let rssi = self.transceiver.get_rssi().await.unwrap();
             let noicefloor = &mut self.noisefloor[self.current_channel as usize];
             let mut token = if rssi > noicefloor.value() + self.min_snr as Rssi {
@@ -224,7 +232,7 @@ mod tests {
 
     use crate::ctrl::{
         adapters::tokio::TokioDelay,
-        traits::{stubs::RxTokenStub, MockAsyncTransceiver, MockTransceiver},
+        traits::{stubs::RxTokenStub, MockTransceiver},
     };
 
     use super::*;
@@ -305,30 +313,21 @@ mod tests {
     #[tokio::test]
     async fn can_receive_aborted_before_any_frames() {
         // Given
-        let mut transceiver = MockAsyncTransceiver::new();
+        let mut transceiver = MockTransceiver::new();
         transceiver
             .expect_set_channel()
             .withf(|_channel| true)
-            .returning(|_| Box::pin(future::ready(Ok(()))));
-        transceiver
-            .expect_listen()
-            .returning(|| Box::pin(future::ready(Ok(()))));
-        transceiver.expect_get_rssi().returning(|| {
-            Box::pin(async {
-                time::sleep(Duration::from_millis(1)).await;
-                Ok(-120)
-            })
-        });
-        transceiver
-            .expect_idle()
-            .returning(|| Box::pin(future::ready(Ok(()))));
+            .return_const(Ok(()));
+        transceiver.expect_listen().return_const(Ok(()));
+        transceiver.expect_get_rssi().return_const(Ok(-120));
+        transceiver.expect_idle().return_const(Ok(()));
 
         let mut ctrl = Controller::new(transceiver, TokioDelay);
 
         // When
         {
             let stream = ctrl.receive().await.unwrap();
-            let timeout = time::sleep(Duration::from_millis(500));
+            let timeout = time::sleep(Duration::from_millis(100));
             pin_mut!(stream);
             pin_mut!(timeout);
 
@@ -346,60 +345,42 @@ mod tests {
     #[tokio::test]
     async fn can_receive_frame() {
         // Given
-        let mut transceiver = MockAsyncTransceiver::new();
+        let mut transceiver = MockTransceiver::new();
         transceiver
             .expect_set_channel()
             .withf(|_channel| true)
-            .returning(|_| Box::pin(future::ready(Ok(()))));
-        transceiver
-            .expect_listen()
-            .returning(|| Box::pin(future::ready(Ok(()))));
-        transceiver.expect_get_rssi().returning(|| {
-            Box::pin(async {
-                time::sleep(Duration::from_millis(1)).await;
-                Ok(-100)
-            })
-        });
+            .return_const(Ok(()));
+        transceiver.expect_listen().return_const(Ok(()));
+        transceiver.expect_get_rssi().return_const(Ok(-100));
         transceiver
             .expect_receive()
             .times(1)
             .returning(|_min_frame_length| {
-                Box::pin(future::ready(Ok(RxTokenStub {
+                Ok(RxTokenStub {
                     timestamp: Duration::from_secs(1000),
-                })))
+                })
             });
         transceiver
             .expect_read()
             .times(8)
             .withf(|_token, _buffer| true)
-            .returning(|_buffer, _frame_length| Box::pin(future::ready(Ok(10))));
+            .return_const(Ok(10));
         transceiver
             .expect_accept()
             .times(1)
             .withf(|_token, length| *length == 72)
-            .returning(|_token, _length| Box::pin(future::ready(Ok(()))));
-        transceiver
-            .expect_idle()
-            .returning(|| Box::pin(future::ready(Ok(()))));
+            .return_const(Ok(()));
+        transceiver.expect_idle().return_const(Ok(()));
 
         let mut ctrl = Controller::new(transceiver, TokioDelay);
-        let mut received = None;
 
         // When
-        {
-            let stream = ctrl.receive().await.unwrap();
-            let timeout = time::sleep(Duration::from_millis(500));
-            pin_mut!(stream);
-            pin_mut!(timeout);
+        let received = {
+            let mut stream = ctrl.receive().await.unwrap();
+            // pin_mut!(stream);
 
-            while let Either::Left((frame, _)) =
-                futures::future::select(stream.next(), timeout).await
-            {
-                received = frame;
-
-                break;
-            }
-        }
+            stream.next().await
+        };
         assert!(ctrl.listening); // Receiver is still running
 
         ctrl.idle().await.unwrap();

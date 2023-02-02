@@ -4,7 +4,7 @@ use crc::{Crc, CRC_16_EN_13757};
 use heapless::Vec;
 use num_traits::FromPrimitive;
 
-use super::{Layer, Packet, ReadError, Writer, WriteError};
+use super::{Layer, Packet, ReadError, WriteError, Writer};
 
 pub const HEADER_SIZE: usize = 12;
 pub const MBAL_MAX: usize = 251;
@@ -82,19 +82,29 @@ impl<A: Layer> Layer for Mbal<A> {
         self.above.read(packet, &buffer[HEADER_SIZE..])
     }
 
-    fn write<const N: usize>(&self, writer: &mut impl Writer, packet: &Packet<N>) -> Result<(), WriteError> {
+    fn write<const N: usize>(
+        &self,
+        writer: &mut impl Writer,
+        packet: &Packet<N>,
+    ) -> Result<(), WriteError> {
         let fields = packet.mbal.as_ref().unwrap();
 
         let mut header = Vec::<u8, HEADER_SIZE>::new();
         header.push(fields.control.is_prioritized as u8).unwrap();
-        header.extend_from_slice(fields.address.get_bytes().as_slice()).unwrap();
-        header.push((fields.command.function_code as u8) << 4).unwrap();
+        header
+            .extend_from_slice(fields.address.get_bytes().as_slice())
+            .unwrap();
+        header
+            .push((fields.command.function_code as u8) << 4)
+            .unwrap();
 
         // Append CRC
         let mut digest = CRC.digest();
         digest.update(&header);
         let crc = digest.finalize();
-        header.extend_from_slice(crc.to_be_bytes().as_slice()).unwrap();
+        header
+            .extend_from_slice(crc.to_be_bytes().as_slice())
+            .unwrap();
 
         writer.write(&header)?;
 
