@@ -1,4 +1,3 @@
-use alloc::boxed::Box;
 use embedded_hal_async::delay::DelayUs;
 use futures::{
     future::{self, Either},
@@ -8,10 +7,12 @@ use futures_async_stream::stream;
 
 use crate::{
     ctrl::traits::RxToken,
-    stack::{phl, ReadError, Channel, channel::CHANNEL_COUNT, Rssi},
+    stack::{phl, ReadError, Channel, Rssi},
 };
 
 use super::{noicefloor::NoiceFloor, traits};
+
+const CHANNEL_COUNT: usize = 4;
 
 /// LinkIQ Transceiver Controller
 pub struct Controller<Transceiver: traits::Transceiver, Delay: DelayUs> {
@@ -108,12 +109,12 @@ where
         Ok(self.receive_stream())
     }
 
-    #[stream(boxed_local, item = Frame<Transceiver::Timestamp>)]
+    #[stream(item = Frame<Transceiver::Timestamp>)]
     async fn receive_stream(&mut self) {
         loop {
             let rssi = self.transceiver.get_rssi().await.unwrap();
             let noicefloor = &mut self.noisefloor[self.current_channel as usize];
-            let mut token = if rssi > noicefloor.value() + self.min_snr {
+            let mut token = if rssi > noicefloor.value() + self.min_snr as Rssi {
                 let token = {
                     let token_future = self.transceiver.receive(phl::HEADER_SIZE);
                     let timeout_future = self.delay.delay_us(12_000);

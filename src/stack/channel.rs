@@ -12,5 +12,3 @@ impl Channel {
         868_450_000 + 40_000 * channel
     }
 }
-
-pub(crate) const CHANNEL_COUNT: usize = 4;

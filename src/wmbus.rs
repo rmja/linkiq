@@ -18,6 +18,10 @@ impl WMBusAddress {
         }
     }
 
+    pub fn serial_number(&self) -> u32 {
+        self.serial_number.value()
+    }
+
     pub fn get_bytes(&self) -> [u8; 8] {
         let mut bytes = [0; 8];
         bytes[0..2].copy_from_slice(self.manufacturer_code.to_le_bytes().as_ref());
