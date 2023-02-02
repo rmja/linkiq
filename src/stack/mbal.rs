@@ -1,12 +1,13 @@
 use crate::wmbus::WMBusAddress;
 
-use alloc::vec::Vec;
 use crc::{Crc, CRC_16_EN_13757};
+use heapless::Vec;
 use num_traits::FromPrimitive;
 
-use super::{Layer, Packet, ReadError};
+use super::{Layer, Packet, ReadError, Writer, WriteError};
 
-const HEADER_SIZE: usize = 12;
+pub const HEADER_SIZE: usize = 12;
+pub const MBAL_MAX: usize = 251;
 const CRC: Crc<u16> = Crc::<u16>::new(&CRC_16_EN_13757);
 
 /// M-Bus Adaption Layer
@@ -45,7 +46,7 @@ impl<A: Layer> Mbal<A> {
 }
 
 impl<A: Layer> Layer for Mbal<A> {
-    fn read(&self, packet: &mut Packet, buffer: &[u8]) -> Result<(), ReadError> {
+    fn read<const N: usize>(&self, packet: &mut Packet<N>, buffer: &[u8]) -> Result<(), ReadError> {
         if buffer.len() < HEADER_SIZE {
             return Err(ReadError::NotEnoughBytes);
         } else if !is_valid_crc(&buffer[..HEADER_SIZE]) {
@@ -81,22 +82,21 @@ impl<A: Layer> Layer for Mbal<A> {
         self.above.read(packet, &buffer[HEADER_SIZE..])
     }
 
-    fn write(&self, writer: &mut Vec<u8>, packet: &Packet) {
+    fn write<const N: usize>(&self, writer: &mut impl Writer, packet: &Packet<N>) -> Result<(), WriteError> {
         let fields = packet.mbal.as_ref().unwrap();
 
-        let start = writer.len();
-        writer.reserve(HEADER_SIZE);
-        writer.push(fields.control.is_prioritized as u8);
-        writer.extend_from_slice(fields.address.get_bytes().as_slice());
-
-        // TODO: WHY the shifts?
-        writer.push((fields.command.function_code as u8) << 4);
+        let mut header = Vec::<u8, HEADER_SIZE>::new();
+        header.push(fields.control.is_prioritized as u8).unwrap();
+        header.extend_from_slice(fields.address.get_bytes().as_slice()).unwrap();
+        header.push((fields.command.function_code as u8) << 4).unwrap();
 
         // Append CRC
         let mut digest = CRC.digest();
-        digest.update(&writer[start..]);
+        digest.update(&header);
         let crc = digest.finalize();
-        writer.extend_from_slice(crc.to_be_bytes().as_slice());
+        header.extend_from_slice(crc.to_be_bytes().as_slice()).unwrap();
+
+        writer.write(&header)?;
 
         self.above.write(writer, packet)
     }

@@ -1,6 +1,7 @@
 use self::examples::*;
 use assert_hex::assert_eq_hex;
 use bitvec::prelude::*;
+use heapless::Vec;
 use linkiq::stack::{
     mbal::{self, MbalFunctionCode},
     phl, Packet, Stack,
@@ -67,11 +68,11 @@ fn can_read_example_case(
 ) {
     // Given
     let stack = Stack::new();
-    let mut frame = vector.frame.to_vec();
+    let mut frame = Vec::<u8, 400>::from_slice(vector.frame).unwrap();
 
     if ber > 0.0 {
         let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(0x1337);
-        let slice = BitSlice::<u8, Lsb0>::from_slice_mut(frame.as_mut_slice());
+        let slice = BitSlice::<u8, Lsb0>::from_slice_mut(&mut frame);
 
         for mut bit in slice.iter_mut() {
             if rng.gen::<f64>() < ber {
@@ -81,7 +82,7 @@ fn can_read_example_case(
     }
 
     // When
-    let packet = stack.read(&frame).unwrap();
+    let packet: Packet<300> = stack.read(&frame).unwrap();
 
     // Then
     assert_eq!(vector.frame.len(), phl::get_frame_length(&frame).unwrap());
@@ -119,8 +120,8 @@ fn can_write_examples() {
 fn can_write_example_case(vector: &ExampleVector) {
     // Given
     let stack = Stack::new();
-    let mut writer = Vec::new();
-    let packet = Packet {
+    let mut writer = Vec::<u8, 400>::new();
+    let packet: Packet<300> = Packet {
         rssi: None,
         phl: Some(phl::PhlFields {
             code_rate: vector.code_rate,
@@ -142,11 +143,11 @@ fn can_write_example_case(vector: &ExampleVector) {
                 },
             },
         }),
-        mbus_data: vector.mbus_data.to_vec(),
+        mbus_data: Vec::from_slice(vector.mbus_data).unwrap(),
     };
 
     // When
-    stack.write(&mut writer, &packet);
+    stack.write(&mut writer, &packet).unwrap();
 
     // Then
     assert_eq_hex!(vector.frame, &writer);

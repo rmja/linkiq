@@ -1,21 +1,20 @@
-use alloc::vec::Vec;
-
 use bitvec::prelude::*;
 use crc::{Algorithm, Crc};
 use fastfec::{
     turbo::{umts::UmtsTurboDecoder, TurboEncoder},
     Llr,
 };
+use heapless::Vec;
 use funty::Integral;
 
 use crate::{
     bitreader::{BitField, BitReader},
     fec::{CodeRate, EncoderTermination, TurboDecoderInput, TurboEncoderOutput},
     phycodedheader::PhyCodedHeader,
-    phyinterleaver,
+    phyinterleaver, stack::mbal,
 };
 
-use super::{Layer, Packet, ReadError};
+use super::{Layer, Packet, ReadError, Writer, WriteError};
 
 pub const HEADER_SIZE: usize = 12;
 const CRC_ALGORITHM: Algorithm<u32> = Algorithm::<u32> {
@@ -45,7 +44,7 @@ pub struct PhlFields {
     pub decode_distance: usize,
 }
 
-pub const MAX_FRAME_LENGTH: usize = HEADER_SIZE + 3 * 251;
+pub const MAX_FRAME_LENGTH: usize = HEADER_SIZE + 3 * mbal::MBAL_MAX;
 
 pub fn get_frame_length(buffer: &[u8]) -> Result<usize, ReadError> {
     if buffer.len() < HEADER_SIZE {
@@ -94,7 +93,7 @@ impl<A: Layer> Phl<A> {
         &self,
         data_length: usize,
         input: &TurboDecoderInput,
-    ) -> Option<(Vec<u8>, usize)> {
+    ) -> Option<(Vec<u8, {mbal::MBAL_MAX + 4}>, usize)> {
         let interleaver = phyinterleaver::create(input.symbols.len())?;
         let mut decoding = self.decoder.decode(
             &input.symbols,
@@ -113,7 +112,7 @@ impl<A: Layer> Phl<A> {
             }
 
             if is_valid_crc(data_length, hard.as_raw_slice()) {
-                return Some((hard.as_raw_slice().to_vec(), iteration));
+                return Some((Vec::from_slice(hard.as_raw_slice()).unwrap(), iteration));
             }
 
             hard.clear();
@@ -124,7 +123,7 @@ impl<A: Layer> Phl<A> {
 }
 
 impl<A: Layer> Layer for Phl<A> {
-    fn read(&self, packet: &mut Packet, buffer: &[u8]) -> Result<(), ReadError> {
+    fn read<const N: usize>(&self, packet: &mut Packet<N>, buffer: &[u8]) -> Result<(), ReadError> {
         let mut reader = BitReader::from_slice(buffer);
         reader
             .read_bits::<usize>(2)
@@ -181,12 +180,12 @@ impl<A: Layer> Layer for Phl<A> {
         }
     }
 
-    fn write(&self, writer: &mut Vec<u8>, packet: &Packet) {
+    fn write<const N: usize>(&self, writer: &mut impl Writer, packet: &Packet<N>) -> Result<(), WriteError> {
         let fields = packet.phl.as_ref().unwrap();
-        let mut block = Vec::<u8>::new();
+        let mut block = Vec::<u8, {mbal::MBAL_MAX + 4}>::new();
 
         // Write above layers to block
-        self.above.write(&mut block, packet);
+        self.above.write(&mut block, packet)?;
 
         // Compute CRC
         let mut digest = CRC.digest();
@@ -195,7 +194,7 @@ impl<A: Layer> Layer for Phl<A> {
         let crc = digest.finalize();
 
         // Append CRC to block
-        block.extend_from_slice(crc.to_be_bytes().as_slice());
+        block.extend_from_slice(crc.to_be_bytes().as_slice()).map_err(|_| WriteError::Capacity)?;
 
         // Run Turbo encoder
         let input = block.view_bits::<Msb0>();
@@ -220,13 +219,15 @@ impl<A: Layer> Layer for Phl<A> {
 
         // Write header
         assert_eq!(96, header.len());
-        writer.extend_from_slice(header.as_raw_slice());
+        writer.write(header.as_raw_slice())?;
 
         // Write systematic
-        writer.extend_from_slice(result.systematic.as_raw_slice());
+        writer.write(result.systematic.as_raw_slice())?;
 
         // Write parity
-        writer.extend_from_slice(result.parity.as_raw_slice());
+        writer.write(result.parity.as_raw_slice())?;
+
+        Ok(())
     }
 }
 

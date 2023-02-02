@@ -1,5 +1,7 @@
-use super::{Layer, Packet, ReadError};
-use alloc::vec::Vec;
+use super::{Layer, Packet, ReadError, Writer, WriteError, mbal};
+use heapless::Vec;
+
+pub const MBUS_DATA_MAX: usize = mbal::MBAL_MAX - mbal::HEADER_SIZE;
 
 /// Application Layer
 pub struct Apl;
@@ -11,12 +13,12 @@ impl Apl {
 }
 
 impl Layer for Apl {
-    fn read(&self, packet: &mut Packet, buffer: &[u8]) -> Result<(), ReadError> {
-        packet.mbus_data = buffer.to_vec();
+    fn read<const N: usize>(&self, packet: &mut Packet<N>, buffer: &[u8]) -> Result<(), ReadError> {
+        packet.mbus_data = Vec::from_slice(buffer).map_err(|_| ReadError::Capacity)?;
         Ok(())
     }
 
-    fn write(&self, writer: &mut Vec<u8>, packet: &Packet) {
-        writer.extend_from_slice(&packet.mbus_data);
+    fn write<const N: usize>(&self, writer: &mut impl Writer, packet: &Packet<N>) -> Result<(), WriteError> {
+        writer.write(&packet.mbus_data)
     }
 }
