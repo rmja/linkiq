@@ -42,7 +42,6 @@ impl<const N: usize> Writer for Vec<u8, N> {
     }
 }
 
-#[cfg(feature = "alloc")]
 impl Writer for alloc::vec::Vec<u8> {
     fn write(&mut self, buf: &[u8]) -> Result<(), WriteError> {
         self.extend_from_slice(buf);

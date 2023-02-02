@@ -98,7 +98,7 @@ impl<A: Layer> Phl<A> {
         let interleaver = phyinterleaver::create(input.symbols.len())?;
         let mut decoding = self.decoder.decode(
             &input.symbols,
-            interleaver,
+            &interleaver,
             &input.first_termination,
             &input.second_termination,
         );
@@ -158,7 +158,7 @@ impl<A: Layer> Layer for Phl<A> {
             let parity = &buffer[HEADER_SIZE + block_length..];
             // TODO
             const SNR: Llr = 4;
-            let input = TurboDecoderInput::<{8 * (mbal::MBAL_MAX + 4)}>::new(
+            let input = TurboDecoderInput::<{ 8 * (mbal::MBAL_MAX + 4) }>::new(
                 header.rate,
                 block,
                 parity,
@@ -209,7 +209,7 @@ impl<A: Layer> Layer for Phl<A> {
 
         let interleaver = phyinterleaver::create(input.len()).unwrap();
         let mut output = TurboEncoderOutput::new(fields.code_rate, input.len());
-        self.encoder.encode(input, interleaver, &mut output);
+        self.encoder.encode(input, &interleaver, &mut output);
         let result = output.get_result();
 
         // Prepare header by writing bits

@@ -261,7 +261,7 @@ mod tests {
         let mut output = TurboEncoderOutput::new(rate, interleaver.len());
 
         // When
-        encoder.encode(input_bits, interleaver, &mut output);
+        encoder.encode(input_bits, &interleaver, &mut output);
         let written = output.written;
         let result = output.get_result();
 

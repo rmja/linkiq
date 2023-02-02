@@ -5,7 +5,6 @@
 #![feature(const_trait_impl)]
 #![feature(let_chains)]
 
-#[cfg(feature = "alloc")]
 extern crate alloc;
 
 #[macro_use]
