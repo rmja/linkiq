@@ -25,7 +25,7 @@ pub struct Packet {
     pub mbus_data: Vec<u8>,
 }
 
-pub type Rssi = i8;
+pub type Rssi = i16;
 pub use channel::Channel;
 
 #[derive(Debug)]
