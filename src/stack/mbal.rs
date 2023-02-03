@@ -1,5 +1,4 @@
-use crate::wmbus::WMBusAddress;
-
+use wmbus::WMBusAddress;
 use crc::{Crc, CRC_16_EN_13757};
 use heapless::Vec;
 use num_traits::FromPrimitive;
@@ -61,8 +60,7 @@ impl<A: Layer> Layer for Mbal<A> {
             },
         };
 
-        let address = buffer[1..]
-            .try_into()
+        let address = WMBusAddress::from_bytes(buffer[1..9].try_into().unwrap())
             .map_err(|_| ReadError::MBalAddressError)?;
 
         let command = MbalCommand {

@@ -133,7 +133,7 @@ fn can_write_example_case(vector: &ExampleVector) {
             control: mbal::MbalControl {
                 is_prioritized: vector.is_prioritized,
             },
-            address: vector.address,
+            address: vector.address.clone(),
             command: match vector.is_installation {
                 true => mbal::MbalCommand {
                     function_code: mbal::MbalFunctionCode::SendInstallationRequest,
@@ -156,7 +156,8 @@ fn can_write_example_case(vector: &ExampleVector) {
 #[rustfmt::skip]
 mod examples {
     use once_cell::sync::Lazy;
-    use linkiq::{fec::CodeRate, wmbus::WMBusAddress};
+    use linkiq::fec::CodeRate;
+    use wmbus::WMBusAddress;
 
     pub struct ExampleVector {
         pub name: &'static str,
@@ -177,7 +178,7 @@ mod examples {
         code_rate: CodeRate::OneHalf,
         is_prioritized: true,
         is_installation: true,
-        address: WMBusAddress::new(0x2c37, 12341234, 27, 0x16),
+        address: WMBusAddress::new(0x2c37.try_into().unwrap(), 12341234, 27, 0x16.try_into().unwrap()),
         mbus_data: 
         &[
             0x7A, 0x01, 0x00, 0x20, 0x05, 0x19, 0x32,
@@ -204,7 +205,7 @@ mod examples {
         code_rate: CodeRate::OneHalf,
         is_prioritized: false,
         is_installation: false,
-        address: WMBusAddress::new(0x2c2d, 71006389, 0x34, 0x04),
+        address: WMBusAddress::new(0x2c2d.try_into().unwrap(), 71006389, 0x34, 0x04.try_into().unwrap()),
         mbus_data:
         &[
             0x90, 0x0F, 0x00, 0x2C, 0x25, 0x45, 0x42, 0x01, 0x00, 0xC9, 0xFE, 0x78, 0x01, 0x18, 0xB7, 0xE8, 0x31,
@@ -233,7 +234,7 @@ mod examples {
         code_rate: CodeRate::OneThird,
         is_prioritized: false,
         is_installation: false,
-        address: WMBusAddress::new(0x2c2d, 05040302, 6, 0x00),
+        address: WMBusAddress::new(0x2c2d.try_into().unwrap(), 05040302, 6, 0x00.try_into().unwrap()),
         mbus_data:
         &[
             0x7A, 0x22, 0xAB, 0xFF, 0x2A, 0x10, 0x01, 0xFF, 0xEE, 0xDD, 0xCC,
@@ -260,7 +261,7 @@ mod examples {
         code_rate: CodeRate::OneThird,
         is_prioritized: false,
         is_installation: false,
-        address: WMBusAddress::new(0x2c2d, 05040302, 6, 0x00),
+        address: WMBusAddress::new(0x2c2d.try_into().unwrap(), 05040302, 6, 0x00.try_into().unwrap()),
         mbus_data:
         &[
             0x7A, 0x2A, 0x00, 0x00, 0x00,
