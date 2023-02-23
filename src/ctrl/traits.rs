@@ -1,14 +1,14 @@
 use core::fmt::Debug;
 
+use embassy_time::Instant;
 #[cfg(test)]
 use mockall::automock;
 
 use crate::stack::{Channel, Rssi};
 
-#[cfg_attr(test, automock(type Timestamp = core::time::Duration; type RxToken = stubs::RxTokenStub; type Error = ();))]
+#[cfg_attr(test, automock(type RxToken = stubs::RxTokenStub; type Error = ();))]
 pub trait Transceiver {
-    type Timestamp: Copy;
-    type RxToken: RxToken<Self::Timestamp>;
+    type RxToken: RxToken;
     type Error: Debug;
 
     /// Setup the transceiver and enter idle state.
@@ -54,22 +54,22 @@ pub trait Transceiver {
     async fn idle(&mut self) -> Result<(), Self::Error>;
 }
 
-pub trait RxToken<Timestamp: Copy> {
+pub trait RxToken {
     /// Get the start-of-frame timestamp
-    fn timestamp(&self) -> Option<Timestamp>;
+    fn timestamp(&self) -> Instant;
 }
 
 #[cfg(test)]
 pub mod stubs {
+    use embassy_time::Instant;
+
     use super::RxToken;
 
-    pub struct RxTokenStub {
-        pub timestamp: core::time::Duration,
-    }
+    pub struct RxTokenStub(pub Instant);
 
-    impl RxToken<core::time::Duration> for RxTokenStub {
-        fn timestamp(&self) -> Option<core::time::Duration> {
-            Some(self.timestamp)
+    impl RxToken for RxTokenStub {
+        fn timestamp(&self) -> Instant {
+            self.0
         }
     }
 }

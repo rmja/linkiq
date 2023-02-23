@@ -1,7 +1,7 @@
-use wmbus::WMBusAddress;
 use crc::{Crc, CRC_16_EN_13757};
 use heapless::Vec;
 use num_traits::FromPrimitive;
+use wmbus::WMBusAddress;
 
 use super::{Layer, Packet, ReadError, WriteError, Writer};
 

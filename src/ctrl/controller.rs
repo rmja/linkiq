@@ -1,8 +1,5 @@
-use embedded_hal_async::delay::DelayUs;
-use futures::{
-    future::{self, Either},
-    pin_mut, Stream,
-};
+use embassy_time::{with_timeout, Duration, TimeoutError, Timer};
+use futures::Stream;
 use futures_async_stream::stream;
 
 use crate::{
@@ -10,56 +7,27 @@ use crate::{
     stack::{phl, Channel, ReadError, Rssi},
 };
 
-use super::{noicefloor::NoiceFloor, traits};
+use super::{noicefloor::NoiceFloor, traits, Frame};
 
 const CHANNEL_COUNT: usize = 4;
 
 /// LinkIQ Transceiver Controller
-pub struct Controller<Transceiver: traits::Transceiver, Delay: DelayUs> {
+pub struct Controller<Transceiver: traits::Transceiver> {
     transceiver: Transceiver,
-    delay: Delay,
     listening: bool,
     current_channel: Channel,
     min_snr: i8,
     noisefloor: [NoiceFloor; CHANNEL_COUNT],
 }
 
-pub struct Frame<Timestamp> {
-    pub timestamp: Option<Timestamp>,
-    pub rssi: Option<Rssi>,
-    buffer: [u8; phl::MAX_FRAME_LENGTH],
-    received: usize,
-    length: Option<usize>,
-}
-
-impl<Timestamp> const Default for Frame<Timestamp> {
-    fn default() -> Self {
-        Self {
-            timestamp: None,
-            rssi: None,
-            buffer: [0; phl::MAX_FRAME_LENGTH],
-            received: 0,
-            length: None,
-        }
-    }
-}
-
-impl<Timestamp> Frame<Timestamp> {
-    pub fn bytes(&self) -> &[u8] {
-        &self.buffer[0..self.length.unwrap()]
-    }
-}
-
-impl<Transceiver, Delay> Controller<Transceiver, Delay>
+impl<Transceiver> Controller<Transceiver>
 where
     Transceiver: traits::Transceiver,
-    Delay: DelayUs,
 {
     /// Create a new controller
-    pub const fn new(transceiver: Transceiver, delay: Delay) -> Self {
+    pub const fn new(transceiver: Transceiver) -> Self {
         Self {
             transceiver,
-            delay,
             listening: false,
             current_channel: Channel::A,
             min_snr: 4,
@@ -98,7 +66,7 @@ where
     /// Note that the receiver is _not_ stopped when the stream is dropped, so idle() must be called manually after the stream is dropped.
     pub async fn receive<'a>(
         &'a mut self,
-    ) -> Result<impl Stream<Item = Frame<Transceiver::Timestamp>> + 'a, Transceiver::Error> {
+    ) -> Result<impl Stream<Item = Frame> + 'a, Transceiver::Error> {
         assert!(!self.listening);
         self.transceiver.set_channel(self.current_channel).await?;
 
@@ -109,29 +77,25 @@ where
         Ok(self.receive_stream())
     }
 
-    #[stream(item = Frame<Transceiver::Timestamp>)]
+    #[stream(item = Frame)]
     async fn receive_stream(&mut self) {
         loop {
             // Make time for test to yield as all mocked futures are completed
             #[cfg(test)]
-            self.delay.delay_us(0).await.unwrap();
+            Timer::after(Duration::from_ticks(0)).await;
 
             let rssi = self.transceiver.get_rssi().await.unwrap();
             let noicefloor = &mut self.noisefloor[self.current_channel as usize];
             let mut token = if rssi > noicefloor.value() + self.min_snr as Rssi {
                 let token = {
-                    let token_future = self.transceiver.receive(phl::HEADER_SIZE);
-                    let timeout_future = self.delay.delay_us(12_000);
-                    pin_mut!(token_future);
-                    pin_mut!(timeout_future);
-
-                    if let Either::Left((token, _)) =
-                        future::select(token_future, timeout_future).await
+                    match with_timeout(
+                        Duration::from_millis(12),
+                        self.transceiver.receive(phl::HEADER_SIZE),
+                    )
+                    .await
                     {
-                        Some(token.unwrap())
-                    } else {
-                        // Timeout
-                        None
+                        Ok(token) => Some(token.unwrap()),
+                        Err(TimeoutError) => None,
                     }
                 };
 
@@ -150,9 +114,11 @@ where
             };
 
             // Frame was detected - read all frame bytes...
-            let mut frame = Frame::default();
-            frame.timestamp = token.timestamp();
-            frame.rssi = Some(rssi);
+            let mut frame = Frame {
+                timestamp: token.timestamp(),
+                rssi: Some(rssi),
+                ..Default::default()
+            };
 
             loop {
                 let buffer = &mut frame.buffer[frame.received..];
@@ -161,11 +127,11 @@ where
                 if let Ok(received) = received {
                     frame.received += received;
 
-                    if frame.length.is_none() {
+                    if frame.len.is_none() {
                         match phl::get_frame_length(&frame.buffer[..frame.received]) {
                             Ok(length) => {
                                 self.transceiver.accept(&mut token, length).await.unwrap();
-                                frame.length = Some(length);
+                                frame.len = Some(length);
                             }
                             Err(ReadError::NotEnoughBytes) => {
                                 // We need more bytes to derive the frame length
@@ -178,7 +144,7 @@ where
                         }
                     }
 
-                    if let Some(frame_length) = frame.length && frame.received >= frame_length {
+                    if let Some(frame_length) = frame.len && frame.received >= frame_length {
                             // Frame is fully received
                             yield frame;
                             self.set_next_channel().await;
@@ -221,15 +187,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use core::time::Duration;
-    use futures::{future::Either, pin_mut, prelude::*};
+    use embassy_time::{Duration, Instant};
+    use futures::{pin_mut, prelude::*};
     use mockall::{predicate::eq, Sequence};
-    use tokio::time;
 
-    use crate::ctrl::{
-        adapters::tokio::TokioDelay,
-        traits::{stubs::RxTokenStub, MockTransceiver},
-    };
+    use crate::ctrl::traits::{stubs::RxTokenStub, MockTransceiver};
 
     use super::*;
 
@@ -262,7 +224,7 @@ mod tests {
             .in_sequence(&mut seq)
             .return_const(Ok(()));
 
-        let mut ctrl = Controller::new(transceiver, TokioDelay);
+        let mut ctrl = Controller::new(transceiver);
 
         // When
         ctrl.write(&[0x01, 0x23]).await.unwrap();
@@ -295,7 +257,7 @@ mod tests {
             .in_sequence(&mut seq)
             .return_const(Ok(()));
 
-        let mut ctrl = Controller::new(transceiver, TokioDelay);
+        let mut ctrl = Controller::new(transceiver);
 
         // When
         let stream = ctrl.receive().await;
@@ -318,19 +280,25 @@ mod tests {
         transceiver.expect_get_rssi().return_const(Ok(-120));
         transceiver.expect_idle().return_const(Ok(()));
 
-        let mut ctrl = Controller::new(transceiver, TokioDelay);
+        let mut ctrl = Controller::new(transceiver);
 
         // When
         {
             let stream = ctrl.receive().await.unwrap();
-            let timeout = time::sleep(Duration::from_millis(100));
             pin_mut!(stream);
-            pin_mut!(timeout);
 
-            if let Either::Left((_frame, _)) = futures::future::select(stream.next(), timeout).await
-            {
-                assert!(false); // No frame is received
-            }
+            // No frame is received
+            assert!(with_timeout(Duration::from_millis(100), stream.next())
+                .await
+                .is_err());
+
+            // pin_mut!(stream);
+            // pin_mut!(timeout);
+
+            // if let Either::Left((_frame, _)) = futures::future::select(stream.next(), timeout).await
+            // {
+            //     assert!(false); // No frame is received
+            // }
         }
         assert!(ctrl.listening); // Receiver is still running
 
@@ -351,11 +319,7 @@ mod tests {
         transceiver
             .expect_receive()
             .times(1)
-            .returning(|_min_frame_length| {
-                Ok(RxTokenStub {
-                    timestamp: Duration::from_secs(1000),
-                })
-            });
+            .returning(|_min_frame_length| Ok(RxTokenStub(Instant::now())));
         transceiver
             .expect_read()
             .times(8)
@@ -368,7 +332,7 @@ mod tests {
             .return_const(Ok(()));
         transceiver.expect_idle().return_const(Ok(()));
 
-        let mut ctrl = Controller::new(transceiver, TokioDelay);
+        let mut ctrl = Controller::new(transceiver);
 
         // When
         let received = {
@@ -384,8 +348,7 @@ mod tests {
 
         // Then
         let frame = received.unwrap();
-        assert_eq!(Duration::from_secs(1000), frame.timestamp.unwrap());
-        assert_eq!(72, frame.length.unwrap());
+        assert_eq!(72, frame.len.unwrap());
         assert_eq!(80, frame.received);
     }
 }

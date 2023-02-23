@@ -10,12 +10,12 @@ keywords = ["kamstrup", "linkiq", "openlinkiq"]
 description = "Kamstrup OpenlinkIQ protocol"
 
 [features]
-ctrl = ["futures", "futures-async-stream", "embedded-hal-async"]
+ctrl = ["embassy-time", "futures", "futures-async-stream"]
 
 [dependencies]
 bitvec = { version = "1", default-features = false, features = ["alloc"]}
 crc = "2.0"
-embedded-hal-async = { version = "0.2.0-alpha.0", optional = true }
+embassy-time = { version = "0.1", optional = true }
 fastfec = { path = "../fastfec", features = ["alloc"]}
 funty = { version = "2", default-features = false }
 futures = { version = "0.3.0", default-features = false, optional = true }
@@ -27,8 +27,10 @@ wmbus = { path = "../wmbus" }
 
 [dev-dependencies]
 assert_hex = "0.2"
+embassy-time = { version = "0.1", features = ["std", "generic-queue"] }
+critical-section = { version = "1", features = ["std"] }
 mockall = "0.11"
 once_cell = "1"
 rand = "0.8"
 rand_chacha = "0.3"
-tokio = { version = "1", features = ["macros", "rt", "time"] }
+tokio = { version = "1", features = ["macros", "rt"] }
