@@ -19,6 +19,7 @@ use super::{Layer, Packet, ReadError, WriteError, Writer};
 
 pub const HEADER_SIZE: usize = 12;
 const CRC_ALGORITHM: Algorithm<u32> = Algorithm::<u32> {
+    width: 32,
     poly: 0xf4acfb13,
     init: 0x00000000,
     refin: false,
