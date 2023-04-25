@@ -76,7 +76,7 @@ impl Stack {
     }
 
     /// Read a packet from a byte buffer
-    pub fn read<const N: usize>(&self, buffer: &[u8]) -> Result<Packet<N>, ReadError> {
+    pub fn read(&self, buffer: &[u8]) -> Result<Packet, ReadError> {
         let mut packet = Packet::default();
         self.phl.read(&mut packet, buffer)?;
         Ok(packet)

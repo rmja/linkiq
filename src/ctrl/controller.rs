@@ -17,7 +17,7 @@ pub struct Controller<Transceiver: traits::Transceiver> {
     listening: bool,
     current_channel: Channel,
     min_snr: i8,
-    noisefloor: [NoiceFloor; CHANNEL_COUNT],
+    noise_floor: [NoiceFloor; CHANNEL_COUNT],
 }
 
 impl<Transceiver> Controller<Transceiver>
@@ -31,13 +31,21 @@ where
             listening: false,
             current_channel: Channel::A,
             min_snr: 4,
-            noisefloor: [
+            noise_floor: [
                 NoiceFloor::new(-110),
                 NoiceFloor::new(-110),
                 NoiceFloor::new(-110),
                 NoiceFloor::new(-110),
             ],
         }
+    }
+
+    pub fn noise_floor(&self) -> [Rssi; CHANNEL_COUNT] {
+        let mut res = [0; CHANNEL_COUNT];
+        for (i, nf) in self.noise_floor.iter().enumerate() {
+            res[i] = nf.value();
+        }
+        res
     }
 
     /// Setup the transceiver and enter idle state.
@@ -84,8 +92,12 @@ where
             #[cfg(test)]
             Timer::after(Duration::from_ticks(0)).await;
 
-            let rssi = self.transceiver.get_rssi().await.unwrap();
-            let noicefloor = &mut self.noisefloor[self.current_channel as usize];
+            let rssi = loop {
+                if let Ok(rssi) = self.transceiver.get_rssi().await {
+                    break rssi;
+                }
+            };
+            let noicefloor = &mut self.noise_floor[self.current_channel as usize];
             let mut token = if rssi > noicefloor.value() + self.min_snr as Rssi {
                 let token = {
                     match with_timeout(
@@ -103,13 +115,13 @@ where
                     token
                 } else {
                     // Timeout
-                    self.set_next_channel().await;
+                    self.set_next_channel().await.unwrap();
                     continue;
                 }
             } else {
                 noicefloor.add(rssi);
 
-                self.set_next_channel().await;
+                self.set_next_channel().await.unwrap();
                 continue;
             };
 
@@ -147,7 +159,7 @@ where
                     if let Some(frame_length) = frame.len && frame.received >= frame_length {
                             // Frame is fully received
                             yield frame;
-                            self.set_next_channel().await;
+                            self.set_next_channel().await.unwrap();
                             break;
                     }
                 } else {
@@ -160,7 +172,7 @@ where
         }
     }
 
-    async fn set_next_channel(&mut self) {
+    async fn set_next_channel(&mut self) -> Result<(), Transceiver::Error> {
         self.current_channel = match self.current_channel {
             Channel::A => Channel::B,
             Channel::B => Channel::C,
@@ -168,7 +180,7 @@ where
             Channel::D => Channel::A,
         };
 
-        // self.transceiver.set_channel(self.current_channel).await;
+        self.transceiver.set_channel(self.current_channel).await
     }
 
     // Stop the receiver.
