@@ -1,6 +1,6 @@
 use fastfec::interleaver::qpp::QppInterleaver;
 
-pub(crate) const fn create(length: usize) -> Option<QppInterleaver> {
+pub const fn new(length: usize) -> Option<QppInterleaver> {
     match length {
         128 => Some(QppInterleaver::new(128, 7, 16)),
         136 => Some(QppInterleaver::new(136, 121, 102)),

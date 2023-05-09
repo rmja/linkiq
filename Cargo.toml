@@ -13,10 +13,10 @@ description = "Kamstrup OpenlinkIQ protocol"
 ctrl = ["embassy-time", "futures", "futures-async-stream"]
 
 [dependencies]
-bitvec = { version = "1", default-features = false, features = ["alloc"]}
+bitvec = { version = "1", default-features = false, features = ["alloc"] }
 crc = "3"
 embassy-time = { version = "0.1", optional = true }
-fastfec = { path = "../fastfec", features = ["alloc"]}
+fastfec = { path = "../fastfec" }
 funty = { version = "2", default-features = false }
 futures = { version = "0.3", default-features = false, optional = true }
 futures-async-stream = { version = "0.2", optional = true }

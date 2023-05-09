@@ -1,9 +1,7 @@
 use fastfec::{
     convolutional::{bcjr::BcjrSymbol, EncoderOutput},
-    Llr,
+    Llr, LlrMul,
 };
-
-use super::LlrMul;
 
 #[derive(Default, Clone, Copy)]
 pub(crate) struct EncoderTermination(pub usize);

@@ -1,5 +1,4 @@
 mod encodertermination;
-mod llrops;
 mod turbodecoderinput;
 mod turboencoderoutput;
 
@@ -19,6 +18,5 @@ impl From<CodeRate> for fastfec::CodeRate {
 }
 
 pub(crate) use encodertermination::EncoderTermination;
-pub use llrops::LlrMul;
 pub(crate) use turbodecoderinput::TurboDecoderInput;
 pub(crate) use turboencoderoutput::TurboEncoderOutput;

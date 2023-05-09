@@ -82,7 +82,7 @@ fn can_read_example_case(
     }
 
     // When
-    let packet: Packet<300> = stack.read(&frame).unwrap();
+    let packet: Packet<239> = stack.read(&frame).unwrap();
 
     // Then
     assert_eq!(vector.frame.len(), phl::get_frame_length(&frame).unwrap());

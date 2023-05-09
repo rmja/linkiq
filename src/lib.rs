@@ -12,8 +12,8 @@ extern crate num_derive;
 
 mod bitreader;
 pub mod fec;
+pub mod interleaver;
 mod phycodedheader;
-mod phyinterleaver;
 pub mod stack;
 
 #[cfg(feature = "ctrl")]

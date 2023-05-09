@@ -105,10 +105,13 @@ impl TurboEncoderOutputWriter for TurboEncoderOutput {
 #[cfg(test)]
 mod tests {
     use fastfec::{
-        convolutional::ConvolutionalEncoder, interleaver::Interleaver, turbo::TurboEncoder,
+        catalog,
+        convolutional::{ConvolutionalCodeExt, ConvolutionalEncoder},
+        interleaver::Interleaver,
+        turbo::TurboEncoder,
     };
 
-    use crate::{phyinterleaver, stack::phl::CRC};
+    use crate::{interleaver, stack::phl::CRC};
     use bitvec::prelude::*;
 
     use super::*;
@@ -177,7 +180,7 @@ mod tests {
         termination: usize,
     ) {
         // Given
-        let mut encoder = ConvolutionalEncoder::new(fastfec::catalog::UMTS_CONSTITUENT);
+        let mut encoder = ConvolutionalEncoder::<catalog::UMTS>::default();
         let mut output = TurboEncoderOutput::new(CodeRate::OneThird, 10);
         output.second_puncturer = Puncturer::new(1, 1); // Puncture the entire second encoder
 
@@ -185,7 +188,7 @@ mod tests {
         for bit in input.view_bits::<Msb0>() {
             output.write_output(encoder.get_output(*bit));
         }
-        for _ in 0..encoder.code().mem() {
+        for _ in 0..catalog::UMTS::mem() {
             output.write_termination_output(0, encoder.get_termination_output());
         }
         let written = output.written;
@@ -256,8 +259,8 @@ mod tests {
         append_checksum(&mut input);
 
         let input_bits = input.view_bits::<Msb0>();
-        let encoder = TurboEncoder::new(fastfec::catalog::UMTS);
-        let interleaver = phyinterleaver::create(input_bits.len()).unwrap();
+        let encoder = TurboEncoder::<catalog::UMTS>::new();
+        let interleaver = interleaver::new(input_bits.len()).unwrap();
         let mut output = TurboEncoderOutput::new(rate, interleaver.len());
 
         // When

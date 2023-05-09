@@ -1,8 +1,10 @@
 use crate::bitreader::BitReader;
 
-use super::{encodertermination::EncoderTermination, CodeRate, LlrMul};
+use super::{encodertermination::EncoderTermination, CodeRate};
 use bitvec::prelude::Msb0;
-use fastfec::{convolutional::bcjr::BcjrSymbol, ratematching::Puncturer, turbo::TurboSymbol, Llr};
+use fastfec::{
+    convolutional::bcjr::BcjrSymbol, ratematching::Puncturer, turbo::TurboSymbol, Llr, LlrMul,
+};
 use heapless::Vec;
 
 pub(crate) struct TurboDecoderInput<const N: usize> {

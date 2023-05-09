@@ -1,6 +1,7 @@
 use bitvec::prelude::*;
 use crc::{Algorithm, Crc};
 use fastfec::{
+    catalog,
     turbo::{umts::UmtsTurboDecoder, TurboEncoder},
     Llr,
 };
@@ -10,14 +11,16 @@ use heapless::Vec;
 use crate::{
     bitreader::{BitField, BitReader},
     fec::{CodeRate, EncoderTermination, TurboDecoderInput, TurboEncoderOutput},
+    interleaver,
     phycodedheader::PhyCodedHeader,
-    phyinterleaver,
     stack::mbal,
 };
 
 use super::{Layer, Packet, ReadError, WriteError, Writer};
 
 pub const HEADER_SIZE: usize = 12;
+const MAX_BLOCK: usize = mbal::MBAL_MAX + 4;
+const MAX_BLOCK_BITS: usize = MAX_BLOCK * 8;
 const CRC_ALGORITHM: Algorithm<u32> = Algorithm::<u32> {
     width: 32,
     poly: 0xf4acfb13,
@@ -28,13 +31,13 @@ const CRC_ALGORITHM: Algorithm<u32> = Algorithm::<u32> {
     check: 0x6C9F84A8,
     residue: 0x00000000,
 };
-pub(crate) const CRC: Crc<u32> = Crc::<u32>::new(&CRC_ALGORITHM);
+pub const CRC: Crc<u32> = Crc::<u32>::new(&CRC_ALGORITHM);
 
 /// Physical Layer
 pub struct Phl<A: Layer> {
     above: A,
-    encoder: TurboEncoder,
-    decoder: UmtsTurboDecoder,
+    encoder: TurboEncoder<catalog::UMTS>,
+    decoder: UmtsTurboDecoder<catalog::UMTS, MAX_BLOCK_BITS>,
     pub max_decode_iterations: usize,
 }
 
@@ -75,8 +78,8 @@ impl<A: Layer> Phl<A> {
     pub fn new(above: A) -> Self {
         Self {
             above,
-            encoder: TurboEncoder::new(fastfec::catalog::UMTS),
-            decoder: UmtsTurboDecoder::new(fastfec::catalog::UMTS),
+            encoder: TurboEncoder::new(),
+            decoder: UmtsTurboDecoder::new(),
             max_decode_iterations: 10,
         }
     }
@@ -91,12 +94,12 @@ impl<A: Layer> Phl<A> {
         distance
     }
 
-    fn run_decoder<const N: usize>(
+    fn run_decoder(
         &self,
         data_length: usize,
-        input: &TurboDecoderInput<N>,
-    ) -> Option<(Vec<u8, N>, usize)> {
-        let interleaver = phyinterleaver::create(input.symbols.len())?;
+        input: &TurboDecoderInput<MAX_BLOCK_BITS>,
+    ) -> Option<(Vec<u8, MAX_BLOCK>, usize)> {
+        let interleaver = interleaver::new(input.symbols.len())?;
         let mut decoding = self.decoder.decode(
             &input.symbols,
             &interleaver,
@@ -159,7 +162,7 @@ impl<A: Layer> Layer for Phl<A> {
             let parity = &buffer[HEADER_SIZE + block_length..];
             // TODO
             const SNR: Llr = 4;
-            let input = TurboDecoderInput::<{ 8 * (mbal::MBAL_MAX + 4) }>::new(
+            let input = TurboDecoderInput::new(
                 header.rate,
                 block,
                 parity,
@@ -188,7 +191,7 @@ impl<A: Layer> Layer for Phl<A> {
         packet: &Packet<N>,
     ) -> Result<(), WriteError> {
         let fields = packet.phl.as_ref().unwrap();
-        let mut block = Vec::<u8, { mbal::MBAL_MAX + 4 }>::new();
+        let mut block = Vec::<u8, MAX_BLOCK>::new();
 
         // Write above layers to block
         self.above.write(&mut block, packet)?;
@@ -208,7 +211,7 @@ impl<A: Layer> Layer for Phl<A> {
         let input = block.view_bits::<Msb0>();
         debug_assert_eq!(8 * block.len(), input.len());
 
-        let interleaver = phyinterleaver::create(input.len()).unwrap();
+        let interleaver = interleaver::new(input.len()).unwrap();
         let mut output = TurboEncoderOutput::new(fields.code_rate, input.len());
         self.encoder.encode(input, &interleaver, &mut output);
         let result = output.get_result();
