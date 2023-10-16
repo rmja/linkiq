@@ -21,12 +21,12 @@ funty = { version = "2", default-features = false }
 futures = { version = "0.3", default-features = false, optional = true }
 futures-async-stream = { version = "0.2", optional = true }
 heapless = "0.7"
-num-derive = "0.3"
+num-derive = "0.4"
 num-traits = { version = "0.2", default-features = false }
 wmbus = { path = "../wmbus" }
 
 [dev-dependencies]
-assert_hex = "0.2"
+assert_hex = "0.4"
 embassy-time = { version = "0.1", features = ["std", "generic-queue"] }
 critical-section = { version = "1", features = ["std"] }
 mockall = "0.11"
