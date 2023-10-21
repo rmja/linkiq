@@ -1,8 +1,8 @@
 #![cfg_attr(not(test), no_std)]
-#![feature(generators)]
+#![allow(async_fn_in_trait)]
 #![allow(incomplete_features)]
-#![feature(async_fn_in_trait)]
 #![feature(const_trait_impl)]
+#![feature(coroutines)]
 #![feature(let_chains)]
 
 extern crate alloc;
