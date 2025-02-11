@@ -75,7 +75,7 @@ fn can_read_example_case(
         let slice = BitSlice::<u8, Lsb0>::from_slice_mut(&mut frame);
 
         for mut bit in slice.iter_mut() {
-            if rng.gen::<f64>() < ber {
+            if rng.random::<f64>() < ber {
                 *bit = !*bit;
             }
         }
@@ -160,6 +160,7 @@ mod examples {
     use wmbus::WMBusAddress;
 
     pub struct ExampleVector {
+        #[allow(dead_code)]
         pub name: &'static str,
         pub code_rate: CodeRate,
         pub is_prioritized: bool,

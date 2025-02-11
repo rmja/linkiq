@@ -2,7 +2,7 @@ use bitvec::prelude::*;
 use crc::{Algorithm, Crc};
 use fastfec::{
     catalog,
-    turbo::{umts::UmtsTurboDecoder, TurboEncoder},
+    turbo::{trellis_bits, umts::UmtsTurboDecoder, TurboCode, TurboEncoder},
     Llr,
 };
 use funty::Integral;
@@ -21,6 +21,14 @@ use super::{Layer, Packet, ReadError, WriteError, Writer};
 pub const HEADER_SIZE: usize = 12;
 const MAX_BLOCK: usize = mbal::MBAL_MAX + 4;
 const MAX_BLOCK_BITS: usize = MAX_BLOCK * 8;
+const MAX_FIRST_TRELLIS_BITS: usize =
+    trellis_bits::<catalog::UMTS>(MAX_BLOCK_BITS, catalog::UMTS::TERMINATE_FIRST);
+const MAX_SECOND_TRELLIS_BITS: usize =
+    trellis_bits::<catalog::UMTS>(MAX_BLOCK_BITS, catalog::UMTS::TERMINATE_SECOND);
+const MAX_TRELLIS_BITS: usize = trellis_bits::<catalog::UMTS>(
+    MAX_BLOCK_BITS,
+    catalog::UMTS::TERMINATE_FIRST || catalog::UMTS::TERMINATE_SECOND,
+);
 const CRC_ALGORITHM: Algorithm<u32> = Algorithm::<u32> {
     width: 32,
     poly: 0xf4acfb13,
@@ -37,7 +45,13 @@ pub const CRC: Crc<u32> = Crc::<u32>::new(&CRC_ALGORITHM);
 pub struct Phl<A: Layer> {
     above: A,
     encoder: TurboEncoder<catalog::UMTS>,
-    decoder: UmtsTurboDecoder<catalog::UMTS, MAX_BLOCK_BITS>,
+    decoder: UmtsTurboDecoder<
+        catalog::UMTS,
+        MAX_BLOCK_BITS,
+        MAX_FIRST_TRELLIS_BITS,
+        MAX_SECOND_TRELLIS_BITS,
+        MAX_TRELLIS_BITS,
+    >,
     pub max_decode_iterations: usize,
 }
 

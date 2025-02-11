@@ -156,11 +156,13 @@ where
                         }
                     }
 
-                    if let Some(frame_length) = frame.len && frame.received >= frame_length {
-                            // Frame is fully received
-                            yield frame;
-                            self.set_next_channel().await.unwrap();
-                            break;
+                    if let Some(frame_length) = frame.len
+                        && frame.received >= frame_length
+                    {
+                        // Frame is fully received
+                        yield frame;
+                        self.set_next_channel().await.unwrap();
+                        break;
                     }
                 } else {
                     // Error during read - restart receiver

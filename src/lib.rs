@@ -1,6 +1,5 @@
 #![cfg_attr(not(test), no_std)]
 #![allow(async_fn_in_trait)]
-#![allow(incomplete_features)]
 #![feature(const_trait_impl)]
 #![feature(coroutines)]
 #![feature(let_chains)]
